@@ -4,6 +4,25 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <NoWarn>CS8500</NoWarn>
     </PropertyGroup>
+
+    <ItemGroup>
+        <TextTemplate Include="**/*.tt" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Fody" Version="6.8.2">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="InlineIL.Fody" Version="1.9.0" PrivateAssets="All" />
+    </ItemGroup>
+
+    <!--    Inputs="@(TextTemplate)" Outputs="@(TextTemplate->'%(RelativeDir)%(Filename).cs')"-->
+    <Target Name="TextTemplateTransform" BeforeTargets="PrepareForBuild" Inputs="@(TextTemplate)" Outputs="@(TextTemplate->'%(RelativeDir)%(Filename).cs')">
+        <Exec WorkingDirectory="$(ProjectDir)" Command="dotnet tool run t4 -v %(TextTemplate.Identity) -o %(TextTemplate.RelativeDir)%(TextTemplate.Filename).cs -I=%(TextTemplate.RelativeDir)" EnvironmentVariables="ProjectDir=$(ProjectDir)" />
+    </Target>
 
 </Project>

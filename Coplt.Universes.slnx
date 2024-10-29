@@ -1,0 +1,4 @@
+﻿<Solution>
+  <Project Path="Coplt.Universes\Coplt.Universes.csproj" Type="Classic C#" />
+  <Project Path="Tests\Tests.csproj" Type="Classic C#" />
+</Solution>
