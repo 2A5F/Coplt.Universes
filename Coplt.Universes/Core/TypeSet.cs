@@ -22,7 +22,7 @@ public readonly record struct TypeSetId(ulong Id)
     #endregion
 }
 
-public abstract partial class TypeSet : IEnumerable<TypeMeta>
+public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSet>
 {
     #region Fields
 
@@ -36,8 +36,12 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>
         m_types = types;
         m_type_set = type_set;
     }
+    
+    public int Count => m_types.Count;
+    
+    public TypeMeta this[int index] => m_types[index];
 
-    public ReadOnlySpan<TypeMeta> Types => CollectionsMarshal.AsSpan(m_types);
+    public ReadOnlySpan<TypeMeta> Span => CollectionsMarshal.AsSpan(m_types);
 
     public ImmutableHashSet<TypeMeta> Set => m_type_set;
 
@@ -169,6 +173,22 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>
 
     #endregion
 
+    #region Equals
+
+    public bool Equals(TypeSet? other)
+    {
+        if (other is null) return false;
+        if (ReferenceEquals(this, other)) return true;
+        return m_id == other.m_id;
+    }
+
+    public override bool Equals(object? obj) => obj is TypeSet other && Equals(other);
+
+    public override int GetHashCode() => m_id.GetHashCode();
+    
+    
+    #endregion
+
     #region GetEnumerator
 
     public List<TypeMeta>.Enumerator GetEnumerator() => m_types.GetEnumerator();
@@ -188,7 +208,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>
 
     public static List<TypeMeta> SortType(IEnumerable<TypeMeta> types) => types
         .Where(static a => !a.IsTag)
-        .OrderByDescending(static a => a.Size)
+        .OrderBy(static a => a.IsManaged)
+        .ThenByDescending(static a => a.Size)
         .ThenByDescending(static a => a.Align)
         .ThenBy(static a => a.Type.Name)
         .ThenBy(static a => a.Type.GetHashCode())

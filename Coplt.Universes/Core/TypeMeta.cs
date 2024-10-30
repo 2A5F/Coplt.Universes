@@ -6,7 +6,14 @@ using static InlineIL.IL.Emit;
 
 namespace Coplt.Universes.Core;
 
-public readonly record struct TypeMeta(Type Type, TypeId Id, int Size, int Align, bool IsManaged, bool IsTag)
+public readonly record struct TypeMeta(
+    Type Type,
+    TypeId Id,
+    int Size,
+    int Align,
+    bool IsManaged,
+    bool IsTag
+)
 {
     #region Of
 
@@ -49,7 +56,7 @@ public readonly record struct TypeMeta(Type Type, TypeId Id, int Size, int Align
     #region Equals
 
     public bool Equals(TypeMeta other) => Id.Equals(other.Id);
-    
+
     public override int GetHashCode() => Id.GetHashCode();
 
     #endregion

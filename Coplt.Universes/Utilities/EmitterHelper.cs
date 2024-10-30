@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Coplt.Universes.Core;
 using InlineIL;
 using static InlineIL.IL.Emit;
 
@@ -34,6 +35,24 @@ public static class EmitterHelper
     {
         Ldtoken(new MethodRef(typeof(Unsafe), nameof(Unsafe.Add), TypeRef.MethodGenericParameters[0].MakeByRefType(),
             typeof(int)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__UnmanagedAllocator_Alloc()
+    {
+        Ldtoken(new MethodRef(typeof(UnmanagedAllocator), nameof(UnmanagedAllocator.Alloc)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__MemoryHandle_get_Pointer()
+    {
+        Ldtoken(MethodRef.PropertyGet(typeof(MemoryHandle), nameof(MemoryHandle.Pointer)));
         Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
         Castclass<MethodInfo>();
         return IL.Return<MethodInfo>();
