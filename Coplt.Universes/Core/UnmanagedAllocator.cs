@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Coplt.Universes.Utilities;
 
 namespace Coplt.Universes.Core;
 
@@ -6,9 +8,9 @@ public abstract class UnmanagedAllocator
 {
     public static UnmanagedAllocator Instance { get; set; } = new DefaultUnmanagedAllocator();
 
-    public static MemoryHandle Alloc(int size, int align) => Instance.Allocate(size, align);
+    public static MemoryHandle Alloc(nuint size, nuint align) => Instance.Allocate(size, align);
 
-    public abstract MemoryHandle Allocate(int size, int align);
+    public abstract MemoryHandle Allocate(nuint size, nuint align);
 }
 
 public abstract unsafe class MemoryHandle : IDisposable
@@ -30,20 +32,26 @@ public abstract unsafe class MemoryHandle : IDisposable
 
 public sealed unsafe class DefaultUnmanagedAllocator : UnmanagedAllocator
 {
-    public override MemoryHandle Allocate(int size, int align)
+    public override MemoryHandle Allocate(nuint size, nuint align)
     {
-        var arr = GC.AllocateUninitializedArray<byte>(size + align, true);
-        var ptr = Unsafe.AsPointer(ref arr[0]);
-        // todo align
-        return new ArrayMemoryHandle(arr, ptr);
+        if (size >= int.MaxValue) throw new ArgumentException($"Size too large, must < {int.MaxValue}", nameof(size));
+        if (!nuint.IsPow2(align)) throw new ArgumentException("Align must be power of 2", nameof(align));
+        var arr = GC.AllocateUninitializedArray<byte>((int)(size + align - 1), true);
+        var ptr = (nuint)Unsafe.AsPointer(ref arr[0]);
+        var new_ptr = TypeUtils.AlignUp(ptr, align);
+        Debug.Assert(new_ptr + size <= ptr + size + align - 1);
+        return new ArrayMemoryHandle(arr, (void*)new_ptr);
     }
 
     // ReSharper disable once InconsistentNaming
     private sealed class ArrayMemoryHandle(byte[] arr, void* ptr) : MemoryHandle
     {
         private byte[] arr = arr;
-        
+
         public override void* Pointer => ptr;
-        protected override void Dispose(bool disposing) { }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) arr = null!;
+        }
     }
 }

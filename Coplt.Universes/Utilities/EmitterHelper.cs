@@ -58,6 +58,33 @@ public static class EmitterHelper
         return IL.Return<MethodInfo>();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf_TypeUtils_CreateChunkView()
+    {
+        Ldtoken(new MethodRef(typeof(TypeUtils), nameof(TypeUtils.CreateChunkView)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf_TypeUtils_CreateSpanByArray()
+    {
+        Ldtoken(new MethodRef(typeof(TypeUtils), nameof(TypeUtils.CreateSpanByArray)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__Chunk_get_Count()
+    {
+        Ldtoken(MethodRef.PropertyGet(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.Count)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
     #endregion
 
     #region EmitLdInd

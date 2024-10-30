@@ -17,25 +17,28 @@ public static class ArcheEmitter
     {
         #region Calc Chunk Size, Stride
 
-        var unmanaged_size = set.Where(static t => t is { IsTag: false, IsManaged: false }).Sum(static t => t.Size);
-        var stride = 0;
+        var unmanaged_size = (uint)set.Where(static t => t is { IsTag: false, IsManaged: false })
+            .Sum(static t => t.AlignedSize);
+        var max_align = Math.Max(set.Where(static t => t is { IsTag: false, IsManaged: false })
+            .Max(static t => t.Align), ArcheConstants.CacheLineSize);
+        var stride = 0u;
         var chunk_size = ArcheConstants.ChunkSize;
         if (unmanaged_size > 0)
         {
-            if (unmanaged_size < ArcheConstants.ChunkSize - ArcheConstants.CacheLineSize)
+            if (unmanaged_size < ArcheConstants.ChunkSize - max_align)
             {
-                stride = (ArcheConstants.ChunkSize - ArcheConstants.CacheLineSize) / unmanaged_size;
+                stride = (ArcheConstants.ChunkSize - max_align) / unmanaged_size;
             }
             if (stride < ArcheConstants.MinChunkCapacity)
             {
-                var (q, r) = int.DivRem(
-                    unmanaged_size * ArcheConstants.MinChunkCapacity + ArcheConstants.CacheLineSize,
+                var (q, r) = uint.DivRem(
+                    unmanaged_size * ArcheConstants.MinChunkCapacity + max_align,
                     ArcheConstants.ChunkSize
                 );
                 chunk_size = (r == 0 ? q : q + 1) * ArcheConstants.ChunkSize;
                 stride = ArcheConstants.MinChunkCapacity;
             }
-            Debug.Assert(chunk_size - ArcheConstants.CacheLineSize >= unmanaged_size * stride);
+            Debug.Assert(chunk_size - max_align >= unmanaged_size * stride);
         }
         else
         {
@@ -101,14 +104,16 @@ public static class ArcheEmitter
             if (unmanaged_memory_handle != null)
             {
                 // unmanaged_memory_handle = UnmanagedAllocator.Alloc(
-                //     chunk_size - ArcheConstants.CacheLineSize,
-                //     ArcheConstants.CacheLineSize
+                //     chunk_size,
+                //     max_align
                 // );
                 // unmanaged_array_field = unmanaged_memory_handle.Pointer;
-                
+
                 ilg.Emit(OpCodes.Ldarg_0);
-                ilg.Emit(OpCodes.Ldc_I4, chunk_size - ArcheConstants.CacheLineSize);
-                ilg.Emit(OpCodes.Ldc_I4, ArcheConstants.CacheLineSize);
+                ilg.Emit(OpCodes.Ldc_I4, chunk_size);
+                ilg.Emit(OpCodes.Conv_U);
+                ilg.Emit(OpCodes.Ldc_I4, max_align);
+                ilg.Emit(OpCodes.Conv_U);
                 ilg.Emit(OpCodes.Call, EmitterHelper.MethodOf__UnmanagedAllocator_Alloc());
                 ilg.Emit(OpCodes.Stfld, unmanaged_memory_handle);
 
@@ -122,13 +127,80 @@ public static class ArcheEmitter
             foreach (var (i, field) in managed_array_fields)
             {
                 // field = new T[stride];
-                
+
                 ilg.Emit(OpCodes.Ldarg_0);
                 ilg.Emit(OpCodes.Ldc_I4, stride);
                 ilg.Emit(OpCodes.Newarr, chunk_generics[i]);
                 ilg.Emit(OpCodes.Stfld, field);
             }
 
+            ilg.Emit(OpCodes.Ret);
+        }
+
+        #endregion
+
+        #region Define Chunk View/Span
+
+        var cur_offset = 0u;
+        var unmanaged_offsets = new Dictionary<int, uint>();
+
+        foreach (
+            var (meta, i) in set.Select(static (a, b) => (a, b))
+                .Where(static a => a.a is { IsTag: false, IsManaged: false })
+        )
+        {
+            cur_offset = TypeUtils.AlignUp(cur_offset, meta.Align);
+            unmanaged_offsets[i] = cur_offset;
+
+            var generic = chunk_generics[i];
+            var ret_type = typeof(ChunkView<>).MakeGenericType(generic);
+            var create = EmitterHelper.MethodOf_TypeUtils_CreateChunkView().MakeGenericMethod(generic);
+            var prop = chunk_typ.DefineProperty($"View{i}", PropertyAttributes.None, ret_type, []);
+            var get = chunk_typ.DefineMethod($"get_View{i}", MethodAttributes.Public, ret_type, []);
+            prop.SetGetMethod(get);
+            var ilg = get.GetILGenerator();
+            ilg.Emit(OpCodes.Ldarg_0);
+            ilg.Emit(OpCodes.Ldfld, unmanaged_array_field!);
+            if (cur_offset != 0)
+            {
+                ilg.Emit(OpCodes.Ldc_I4, cur_offset);
+                ilg.Emit(OpCodes.Conv_U);
+                ilg.Emit(OpCodes.Add);
+            }
+            ilg.Emit(OpCodes.Ldc_I4, stride);
+            ilg.Emit(OpCodes.Call, create);
+            ilg.Emit(OpCodes.Ret);
+
+            cur_offset += meta.AlignedSize * (stride - 1) + meta.Size;
+        }
+        
+        Debug.Assert(cur_offset < chunk_size);
+
+        foreach (var (_, i) in set.Select(static (a, b) => (a, b))
+                     .Where(static a => a.a is { IsTag: false, IsManaged: true }))
+        {
+            var generic = chunk_generics[i];
+            var ret_type = typeof(Span<>).MakeGenericType(generic);
+            var create = EmitterHelper.MethodOf_TypeUtils_CreateSpanByArray().MakeGenericMethod(generic);
+            var prop = chunk_typ.DefineProperty($"View{i}", PropertyAttributes.None, ret_type, []);
+            var get = chunk_typ.DefineMethod($"get_View{i}", MethodAttributes.Public, ret_type, []);
+            prop.SetGetMethod(get);
+            var ilg = get.GetILGenerator();
+            ilg.Emit(OpCodes.Ldarg_0);
+            ilg.Emit(OpCodes.Ldfld, managed_array_fields[i]);
+            ilg.Emit(OpCodes.Call, create);
+            ilg.Emit(OpCodes.Ret);
+        }
+
+        #endregion
+
+        #region Define Count
+
+        {
+            var get = chunk_typ.DefineMethod("get_Count", MethodAttributes.Public | MethodAttributes.Virtual, typeof(int), []);
+            chunk_typ.DefineMethodOverride(get, EmitterHelper.MethodOf__Chunk_get_Count());
+            var ilg = get.GetILGenerator();
+            ilg.Emit(OpCodes.Ldc_I4, stride);
             ilg.Emit(OpCodes.Ret);
         }
 
@@ -155,6 +227,7 @@ public static class ArcheEmitter
         inst.ManagedArrayField =
             managed_array_fields.ToFrozenDictionary(static a => a.Key,
                 a => chunk_type.GetField($"{managed_array_name}{a.Key}")!);
+        inst.UnmanagedOffsets = unmanaged_offsets.ToFrozenDictionary();
         // todo
         return inst;
 

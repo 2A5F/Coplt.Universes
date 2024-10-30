@@ -10,10 +10,11 @@ public abstract class ArcheType
     public TypeSet TypeSet { get; internal set; } = null!;
     public Type Type { get; internal set; } = null!;
     public Type ChunkType { get; internal set; } = null!;
-    public int ChunkSize { get; internal set; }
-    public int Stride { get; internal set; }
+    public uint ChunkSize { get; internal set; }
+    public uint Stride { get; internal set; }
     public FieldInfo? UnmanagedArrayField { get; internal set; }
     public FrozenDictionary<int, FieldInfo> ManagedArrayField { get; internal set; } = null!;
+    public FrozenDictionary<int, uint> UnmanagedOffsets{ get; internal set; } = null!;
 
     #endregion
 
@@ -27,7 +28,7 @@ public abstract class ArcheType
 
     public abstract class Chunk
     {
-        public int Count { get; internal set; }
+        public virtual int Count => -1;
     }
 
     #endregion

@@ -9,8 +9,9 @@ namespace Coplt.Universes.Core;
 public readonly record struct TypeMeta(
     Type Type,
     TypeId Id,
-    int Size,
-    int Align,
+    uint Size,
+    uint Align,
+    uint AlignedSize,
     bool IsManaged,
     bool IsTag
 )
@@ -19,11 +20,19 @@ public readonly record struct TypeMeta(
 
     private static class TypeMetaOf<T>
     {
-        public static readonly TypeMeta Value = new(
-            typeof(T), TypeId.Of<T>(), Unsafe.SizeOf<T>(), TypeUtils.AlignOf<T>(),
-            RuntimeHelpers.IsReferenceOrContainsReferences<T>(),
-            TypeUtils.IsTag<T>()
-        );
+        // ReSharper disable once StaticMemberInGenericType
+        public static readonly TypeMeta Value;
+
+        static TypeMetaOf()
+        {
+            var size = (uint)Unsafe.SizeOf<T>();
+            var align = TypeUtils.AlignOf<T>();
+            Value = new(
+                typeof(T), TypeId.Of<T>(), size, align, TypeUtils.AlignUp(size, align),
+                RuntimeHelpers.IsReferenceOrContainsReferences<T>(),
+                TypeUtils.IsTag<T>()
+            );
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

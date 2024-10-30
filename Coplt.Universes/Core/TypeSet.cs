@@ -240,7 +240,7 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get;
-        } = ImmutableHashSet.Create(TypeMeta.Of<T>());
+        } = ImmutableHashSet.Create(TypeMeta.Of<Entity>(), TypeMeta.Of<T>());
 
         public TypeSet Build() => Get<S<T>>();
     }
