@@ -14,7 +14,7 @@ public abstract class ArcheType
     public uint Stride { get; internal set; }
     public FieldInfo? UnmanagedArrayField { get; internal set; }
     public FrozenDictionary<int, FieldInfo> ManagedArrayField { get; internal set; } = null!;
-    public FrozenDictionary<int, uint> UnmanagedOffsets{ get; internal set; } = null!;
+    public FrozenDictionary<int, uint> UnmanagedOffsets { get; internal set; } = null!;
 
     #endregion
 
@@ -26,8 +26,11 @@ public abstract class ArcheType
 
     #region Chunk
 
+    public abstract Chunk CreateChunk();
+
     public abstract class Chunk
     {
+        public ArcheType ArcheType { get; protected init; } = null!;
         public virtual int Count => -1;
     }
 

@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Coplt.Universes.Core;
 using InlineIL;
 using static InlineIL.IL.Emit;
@@ -69,6 +70,40 @@ public static unsafe class TypeUtils
 
     #endregion
 
+    #region AlignedSizeOf
+
+    private static class AlignedSizeOfValue<T>
+    {
+        public static readonly uint Value = AlignUp((uint)Unsafe.SizeOf<T>(), AlignOf<T>());
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint AlignedSizeOf<T>() => AlignedSizeOfValue<T>.Value;
+
+    public static int AlignedSizeOf(Type type)
+    {
+        Ldtoken(new MethodRef(typeof(TypeUtils), nameof(AlignedSizeOf), 1));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+
+        Ldc_I4_1();
+        Newarr<Type>();
+        Dup();
+        Ldc_I4_0();
+        Ldarg_0();
+        Stelem_Ref();
+        Callvirt(new MethodRef(typeof(MethodInfo), nameof(MethodInfo.MakeGenericMethod)));
+
+        Ldnull();
+        Call(new MethodRef(typeof(Array), nameof(Array.Empty)).MakeGenericMethod(typeof(object)));
+        Callvirt(new MethodRef(typeof(MethodBase), nameof(MethodBase.Invoke), typeof(object), typeof(object[])));
+
+        Unbox_Any<int>();
+        return IL.Return<int>();
+    }
+
+    #endregion
+
     #region IsTag
 
     private static class IsTagOf<T>
@@ -107,11 +142,15 @@ public static unsafe class TypeUtils
 
     #region Create ChunkView
 
-    public static ChunkView<T> CreateChunkView<T>(T* ptr, int length) => new(ptr, length);
+    public static ChunkSlice<T> CreateChunkSlice<T>(T* ptr, int length) => new(ptr, length);
+    public static ChunkSpan<T> CreateChunkSpan<T>(T* ptr, int length) => new(ref *ptr, length);
+    public static ChunkSpan<T> CreateChunkSpanByArray<T>(T[] array) => new(ref MemoryMarshal.GetArrayDataReference(array), array.Length);
+    public static ChunkView<T> CreateChunkView<T>(ArcheType.Chunk chunk, T* ptr) => new(chunk, ptr);
+    public static ChunkView<T> CreateChunkViewByArray<T>(T[] array) => new(array);
 
     #endregion
 
-    #region Create Span By Array
+    #region Create Span
 
     public static Span<T> CreateSpanByArray<T>(T[] array) => new(array);
 

@@ -59,9 +59,45 @@ public static class EmitterHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf_TypeUtils_CreateChunkSlice()
+    {
+        Ldtoken(new MethodRef(typeof(TypeUtils), nameof(TypeUtils.CreateChunkSlice)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf_TypeUtils_CreateChunkSpan()
+    {
+        Ldtoken(new MethodRef(typeof(TypeUtils), nameof(TypeUtils.CreateChunkSpan)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf_TypeUtils_CreateChunkSpanByArray()
+    {
+        Ldtoken(new MethodRef(typeof(TypeUtils), nameof(TypeUtils.CreateChunkSpanByArray)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MethodInfo MethodOf_TypeUtils_CreateChunkView()
     {
         Ldtoken(new MethodRef(typeof(TypeUtils), nameof(TypeUtils.CreateChunkView)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf_TypeUtils_CreateChunkViewByArray()
+    {
+        Ldtoken(new MethodRef(typeof(TypeUtils), nameof(TypeUtils.CreateChunkViewByArray)));
         Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
         Castclass<MethodInfo>();
         return IL.Return<MethodInfo>();
@@ -77,9 +113,27 @@ public static class EmitterHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MethodInfo MethodOf__Chunk_get_Count()
+    public static MethodInfo MethodOf__ArcheType_Chunk_get_Count()
     {
         Ldtoken(MethodRef.PropertyGet(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.Count)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_CreateChunk()
+    {
+        Ldtoken(new MethodRef(typeof(ArcheType), nameof(ArcheType.CreateChunk)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_Chunk_set_ArcheType()
+    {
+        Ldtoken(MethodRef.PropertySet(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.ArcheType)));
         Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
         Castclass<MethodInfo>();
         return IL.Return<MethodInfo>();

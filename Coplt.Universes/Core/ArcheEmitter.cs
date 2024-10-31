@@ -58,10 +58,16 @@ public static class ArcheEmitter
         var arche_typ = mod.DefineType(arche_typ_name,
             TypeAttributes.Public | TypeAttributes.Sealed, typeof(ArcheType));
 
+        var no_tag_count = set.Where(static t => !t.IsTag).Count();
+
         var chunk_typ =
-            arche_typ.DefineNestedType($"Chunk`{set.Count}", TypeAttributes.NestedPublic, typeof(ArcheType.Chunk));
+            arche_typ.DefineNestedType($"Chunk`{no_tag_count}", TypeAttributes.NestedPublic, typeof(ArcheType.Chunk));
         var chunk_generics = chunk_typ.DefineGenericParameters(
             set.Where(static t => !t.IsTag).Select(static t => $"T{t.Id.Id}").ToArray()
+        );
+
+        var chunk_typ_inst = chunk_typ.MakeGenericType(
+            set.Where(static t => !t.IsTag).Select(static t => t.Type).ToArray()
         );
 
         #endregion
@@ -97,9 +103,18 @@ public static class ArcheEmitter
 
         #region Define Chunk Ctor
 
+        ConstructorBuilder chunk_ctor;
         {
-            var ctor = chunk_typ.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, []);
-            var ilg = ctor.GetILGenerator();
+            chunk_ctor = chunk_typ.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, [arche_typ]);
+            var ilg = chunk_ctor.GetILGenerator();
+
+            {
+                // this.ArcheType = arg1
+                
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Ldarg_1);
+                ilg.Emit(OpCodes.Callvirt, EmitterHelper.MethodOf__ArcheType_Chunk_set_ArcheType());
+            }
 
             if (unmanaged_memory_handle != null)
             {
@@ -153,43 +168,136 @@ public static class ArcheEmitter
             unmanaged_offsets[i] = cur_offset;
 
             var generic = chunk_generics[i];
-            var ret_type = typeof(ChunkView<>).MakeGenericType(generic);
-            var create = EmitterHelper.MethodOf_TypeUtils_CreateChunkView().MakeGenericMethod(generic);
-            var prop = chunk_typ.DefineProperty($"View{i}", PropertyAttributes.None, ret_type, []);
-            var get = chunk_typ.DefineMethod($"get_View{i}", MethodAttributes.Public, ret_type, []);
-            prop.SetGetMethod(get);
-            var ilg = get.GetILGenerator();
-            ilg.Emit(OpCodes.Ldarg_0);
-            ilg.Emit(OpCodes.Ldfld, unmanaged_array_field!);
-            if (cur_offset != 0)
+            // SysSpan
+            if (meta.Size == meta.AlignedSize)
             {
-                ilg.Emit(OpCodes.Ldc_I4, cur_offset);
-                ilg.Emit(OpCodes.Conv_U);
-                ilg.Emit(OpCodes.Add);
+                var ret_type = typeof(Span<>).MakeGenericType(generic);
+                var create = EmitterHelper.MethodOf__MemoryMarshal_CreateSpan().MakeGenericMethod(generic);
+                var prop = chunk_typ.DefineProperty($"Span{i}", PropertyAttributes.None, ret_type, []);
+                var get = chunk_typ.DefineMethod($"get_Span{i}", MethodAttributes.Public, ret_type, []);
+                prop.SetGetMethod(get);
+                var ilg = get.GetILGenerator();
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Ldfld, unmanaged_array_field!);
+                if (cur_offset != 0)
+                {
+                    ilg.Emit(OpCodes.Ldc_I4, cur_offset);
+                    ilg.Emit(OpCodes.Conv_U);
+                    ilg.Emit(OpCodes.Add);
+                }
+                ilg.Emit(OpCodes.Ldc_I4, stride);
+                ilg.Emit(OpCodes.Call, create);
+                ilg.Emit(OpCodes.Ret);
             }
-            ilg.Emit(OpCodes.Ldc_I4, stride);
-            ilg.Emit(OpCodes.Call, create);
-            ilg.Emit(OpCodes.Ret);
+            // SpanView
+            {
+                var ret_type = typeof(ChunkSpan<>).MakeGenericType(generic);
+                var create = EmitterHelper.MethodOf_TypeUtils_CreateChunkSpan().MakeGenericMethod(generic);
+                var prop = chunk_typ.DefineProperty($"SpanView{i}", PropertyAttributes.None, ret_type, []);
+                var get = chunk_typ.DefineMethod($"get_SpanView{i}", MethodAttributes.Public, ret_type, []);
+                prop.SetGetMethod(get);
+                var ilg = get.GetILGenerator();
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Ldfld, unmanaged_array_field!);
+                if (cur_offset != 0)
+                {
+                    ilg.Emit(OpCodes.Ldc_I4, cur_offset);
+                    ilg.Emit(OpCodes.Conv_U);
+                    ilg.Emit(OpCodes.Add);
+                }
+                ilg.Emit(OpCodes.Ldc_I4, stride);
+                ilg.Emit(OpCodes.Call, create);
+                ilg.Emit(OpCodes.Ret);
+            }
+            // SliceView
+            {
+                var ret_type = typeof(ChunkSlice<>).MakeGenericType(generic);
+                var create = EmitterHelper.MethodOf_TypeUtils_CreateChunkSlice().MakeGenericMethod(generic);
+                var prop = chunk_typ.DefineProperty($"SliceView{i}", PropertyAttributes.None, ret_type, []);
+                var get = chunk_typ.DefineMethod($"get_SliceView{i}", MethodAttributes.Public, ret_type, []);
+                prop.SetGetMethod(get);
+                var ilg = get.GetILGenerator();
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Ldfld, unmanaged_array_field!);
+                if (cur_offset != 0)
+                {
+                    ilg.Emit(OpCodes.Ldc_I4, cur_offset);
+                    ilg.Emit(OpCodes.Conv_U);
+                    ilg.Emit(OpCodes.Add);
+                }
+                ilg.Emit(OpCodes.Ldc_I4, stride);
+                ilg.Emit(OpCodes.Call, create);
+                ilg.Emit(OpCodes.Ret);
+            }
+            // View
+            {
+                var ret_type = typeof(ChunkView<>).MakeGenericType(generic);
+                var create = EmitterHelper.MethodOf_TypeUtils_CreateChunkView().MakeGenericMethod(generic);
+                var prop = chunk_typ.DefineProperty($"View{i}", PropertyAttributes.None, ret_type, []);
+                var get = chunk_typ.DefineMethod($"get_View{i}", MethodAttributes.Public, ret_type, []);
+                prop.SetGetMethod(get);
+                var ilg = get.GetILGenerator();
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Dup);
+                ilg.Emit(OpCodes.Ldfld, unmanaged_array_field!);
+                if (cur_offset != 0)
+                {
+                    ilg.Emit(OpCodes.Ldc_I4, cur_offset);
+                    ilg.Emit(OpCodes.Conv_U);
+                    ilg.Emit(OpCodes.Add);
+                }
+                ilg.Emit(OpCodes.Call, create);
+                ilg.Emit(OpCodes.Ret);
+            }
 
             cur_offset += meta.AlignedSize * (stride - 1) + meta.Size;
         }
-        
+
         Debug.Assert(cur_offset < chunk_size);
 
         foreach (var (_, i) in set.Select(static (a, b) => (a, b))
                      .Where(static a => a.a is { IsTag: false, IsManaged: true }))
         {
             var generic = chunk_generics[i];
-            var ret_type = typeof(Span<>).MakeGenericType(generic);
-            var create = EmitterHelper.MethodOf_TypeUtils_CreateSpanByArray().MakeGenericMethod(generic);
-            var prop = chunk_typ.DefineProperty($"View{i}", PropertyAttributes.None, ret_type, []);
-            var get = chunk_typ.DefineMethod($"get_View{i}", MethodAttributes.Public, ret_type, []);
-            prop.SetGetMethod(get);
-            var ilg = get.GetILGenerator();
-            ilg.Emit(OpCodes.Ldarg_0);
-            ilg.Emit(OpCodes.Ldfld, managed_array_fields[i]);
-            ilg.Emit(OpCodes.Call, create);
-            ilg.Emit(OpCodes.Ret);
+            // SysSpan
+            {
+                var ret_type = typeof(Span<>).MakeGenericType(generic);
+                var create = EmitterHelper.MethodOf_TypeUtils_CreateSpanByArray().MakeGenericMethod(generic);
+                var prop = chunk_typ.DefineProperty($"Span{i}", PropertyAttributes.None, ret_type, []);
+                var get = chunk_typ.DefineMethod($"get_Span{i}", MethodAttributes.Public, ret_type, []);
+                prop.SetGetMethod(get);
+                var ilg = get.GetILGenerator();
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Ldfld, managed_array_fields[i]);
+                ilg.Emit(OpCodes.Call, create);
+                ilg.Emit(OpCodes.Ret);
+            }
+            // SpanView
+            {
+                var ret_type = typeof(ChunkSpan<>).MakeGenericType(generic);
+                var create = EmitterHelper.MethodOf_TypeUtils_CreateChunkSpanByArray().MakeGenericMethod(generic);
+                var prop = chunk_typ.DefineProperty($"SpanView{i}", PropertyAttributes.None, ret_type, []);
+                var get = chunk_typ.DefineMethod($"get_SpanView{i}", MethodAttributes.Public, ret_type, []);
+                prop.SetGetMethod(get);
+                var ilg = get.GetILGenerator();
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Ldfld, managed_array_fields[i]);
+                ilg.Emit(OpCodes.Call, create);
+                ilg.Emit(OpCodes.Ret);
+            }
+            // View
+            {
+                var ret_type = typeof(ChunkView<>).MakeGenericType(generic);
+                var create = EmitterHelper.MethodOf_TypeUtils_CreateChunkViewByArray().MakeGenericMethod(generic);
+                var prop = chunk_typ.DefineProperty($"View{i}", PropertyAttributes.None, ret_type, []);
+                var get = chunk_typ.DefineMethod($"get_View{i}", MethodAttributes.Public, ret_type, []);
+                prop.SetGetMethod(get);
+                var ilg = get.GetILGenerator();
+                ilg.Emit(OpCodes.Ldarg_0);
+                ilg.Emit(OpCodes.Ldfld, managed_array_fields[i]);
+                ilg.Emit(OpCodes.Call, create);
+                ilg.Emit(OpCodes.Ret);
+            }
         }
 
         #endregion
@@ -197,10 +305,27 @@ public static class ArcheEmitter
         #region Define Count
 
         {
-            var get = chunk_typ.DefineMethod("get_Count", MethodAttributes.Public | MethodAttributes.Virtual, typeof(int), []);
-            chunk_typ.DefineMethodOverride(get, EmitterHelper.MethodOf__Chunk_get_Count());
+            var get = chunk_typ.DefineMethod("get_Count", MethodAttributes.Public | MethodAttributes.Virtual,
+                typeof(int), []);
+            chunk_typ.DefineMethodOverride(get, EmitterHelper.MethodOf__ArcheType_Chunk_get_Count());
             var ilg = get.GetILGenerator();
             ilg.Emit(OpCodes.Ldc_I4, stride);
+            ilg.Emit(OpCodes.Ret);
+        }
+
+        #endregion
+
+        #region Define Create Chunk
+
+        {
+            var method = arche_typ.DefineMethod(nameof(ArcheType.CreateChunk),
+                MethodAttributes.Public | MethodAttributes.Virtual,
+                typeof(ArcheType.Chunk), []);
+            arche_typ.DefineMethodOverride(method, EmitterHelper.MethodOf__ArcheType_CreateChunk());
+            var ctor = TypeBuilder.GetConstructor(chunk_typ_inst, chunk_ctor);
+            var ilg = method.GetILGenerator();
+            ilg.Emit(OpCodes.Ldarg_0);
+            ilg.Emit(OpCodes.Newobj, ctor);
             ilg.Emit(OpCodes.Ret);
         }
 
@@ -209,6 +334,7 @@ public static class ArcheEmitter
         #region Create Type
 
         var arche_type = arche_typ.CreateType();
+
         var chunk_type = chunk_typ.CreateType().MakeGenericType(
             set.Where(static t => !t.IsTag).Select(static t => t.Type).ToArray()
         );

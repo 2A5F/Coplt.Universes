@@ -20,19 +20,11 @@ public readonly record struct TypeMeta(
 
     private static class TypeMetaOf<T>
     {
-        // ReSharper disable once StaticMemberInGenericType
-        public static readonly TypeMeta Value;
-
-        static TypeMetaOf()
-        {
-            var size = (uint)Unsafe.SizeOf<T>();
-            var align = TypeUtils.AlignOf<T>();
-            Value = new(
-                typeof(T), TypeId.Of<T>(), size, align, TypeUtils.AlignUp(size, align),
-                RuntimeHelpers.IsReferenceOrContainsReferences<T>(),
-                TypeUtils.IsTag<T>()
-            );
-        }
+        public static readonly TypeMeta Value = new(
+            typeof(T), TypeId.Of<T>(), (uint)Unsafe.SizeOf<T>(), TypeUtils.AlignOf<T>(), TypeUtils.AlignedSizeOf<T>(),
+            RuntimeHelpers.IsReferenceOrContainsReferences<T>(),
+            TypeUtils.IsTag<T>()
+        );
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
