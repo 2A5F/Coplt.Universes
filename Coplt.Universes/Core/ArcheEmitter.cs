@@ -13,6 +13,11 @@ public static class ArcheEmitter
 
     public static ArcheType Get(TypeSet set) => s_cache.GetOrAdd(set, Emit);
 
+    private const string asm_name = $"{nameof(Coplt)}.{nameof(Universes)}.{nameof(Core)}.Arches";
+    private static readonly AssemblyBuilder asm =
+        AssemblyBuilder.DefineDynamicAssembly(new(asm_name), AssemblyBuilderAccess.RunAndCollect);
+    internal static readonly ModuleBuilder mod = asm.DefineDynamicModule(asm_name);
+
     private static ArcheType Emit(TypeSet set)
     {
         #region Calc Chunk Size, Stride
@@ -49,11 +54,7 @@ public static class ArcheEmitter
         #endregion
 
         #region Define Type
-
-        var asm_name = $"{nameof(Coplt)}.{nameof(Universes)}.{nameof(Core)}.Arche{set.Id.Id}";
-        var asm = AssemblyBuilder.DefineDynamicAssembly(new(asm_name), AssemblyBuilderAccess.RunAndCollect);
-        var mod = asm.DefineDynamicModule(asm_name);
-
+        
         var arche_typ_name = $"{nameof(Coplt)}.{nameof(Universes)}.{nameof(Core)}.Arche{set.Id.Id}";
         var arche_typ = mod.DefineType(arche_typ_name,
             TypeAttributes.Public | TypeAttributes.Sealed, typeof(ArcheType));
@@ -319,16 +320,30 @@ public static class ArcheEmitter
         }
         
         {
-            var try_get_at = chunk_typ.DefineMethod(nameof(ArcheType.Chunk.TryGetAtUnchecked),
+            var try_get_at = chunk_typ.DefineMethod(nameof(ArcheType.Chunk.TryGetImmAt),
                 MethodAttributes.Public | MethodAttributes.Virtual);
             var T = try_get_at.DefineGenericParameters("T")[0];
             try_get_at.SetParameters(typeof(int));
-            try_get_at.SetReturnType(T.MakeByRefType());
-            chunk_typ.DefineMethodOverride(try_get_at, EmitterHelper.MethodOf__ArcheType_Chunk_TryGetAtUnchecked());
+            try_get_at.SetReturnType(typeof(Ref<>).MakeGenericType(T));
+            chunk_typ.DefineMethodOverride(try_get_at, EmitterHelper.MethodOf__ArcheType_Chunk_TryGetImmAt());
             var ilg = try_get_at.GetILGenerator();
             ilg.Emit(OpCodes.Ldarg_0);
             ilg.Emit(OpCodes.Ldarg_1);
-            ilg.Emit(OpCodes.Call, EmitterHelper.MethodOf__ArcheType_TryGetAtUnchecked().MakeGenericMethod(chunk_typ, T));
+            ilg.Emit(OpCodes.Call, EmitterHelper.MethodOf__ArcheType_TryGetImmAt().MakeGenericMethod(chunk_typ, T));
+            ilg.Emit(OpCodes.Ret);
+        }
+        
+        {
+            var try_get_at = chunk_typ.DefineMethod(nameof(ArcheType.Chunk.TryGetMutAt),
+                MethodAttributes.Public | MethodAttributes.Virtual);
+            var T = try_get_at.DefineGenericParameters("T")[0];
+            try_get_at.SetParameters(typeof(int));
+            try_get_at.SetReturnType(typeof(Mut<>).MakeGenericType(T));
+            chunk_typ.DefineMethodOverride(try_get_at, EmitterHelper.MethodOf__ArcheType_Chunk_TryGetMutAt());
+            var ilg = try_get_at.GetILGenerator();
+            ilg.Emit(OpCodes.Ldarg_0);
+            ilg.Emit(OpCodes.Ldarg_1);
+            ilg.Emit(OpCodes.Call, EmitterHelper.MethodOf__ArcheType_TryGetMutAt().MakeGenericMethod(chunk_typ, T));
             ilg.Emit(OpCodes.Ret);
         }
 
@@ -364,7 +379,6 @@ public static class ArcheEmitter
 
         var inst = (ArcheType)Activator.CreateInstance(arche_type)!;
         inst.TypeSet = set;
-        inst.Module = mod;
         inst.Type = arche_type;
         inst.ChunkType = chunk_type;
         inst.ChunkSize = (int)chunk_size;

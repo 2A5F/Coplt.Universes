@@ -159,6 +159,24 @@ public static class EmitterHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_Chunk_TryGetImmAt()
+    {
+        Ldtoken(new MethodRef(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.TryGetImmAt)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_Chunk_TryGetMutAt()
+    {
+        Ldtoken(new MethodRef(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.TryGetMutAt)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MethodInfo MethodOf__ArcheType_TryGetAt()
     {
         Ldtoken(new MethodRef(typeof(ArcheType), nameof(ArcheType.TryGetAt)));
@@ -168,18 +186,18 @@ public static class EmitterHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MethodInfo MethodOf__ArcheType_Chunk_TryGetAtUnchecked()
+    public static MethodInfo MethodOf__ArcheType_TryGetImmAt()
     {
-        Ldtoken(new MethodRef(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.TryGetAtUnchecked)));
+        Ldtoken(new MethodRef(typeof(ArcheType), nameof(ArcheType.TryGetImmAt)));
         Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
         Castclass<MethodInfo>();
         return IL.Return<MethodInfo>();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MethodInfo MethodOf__ArcheType_TryGetAtUnchecked()
+    public static MethodInfo MethodOf__ArcheType_TryGetMutAt()
     {
-        Ldtoken(new MethodRef(typeof(ArcheType), nameof(ArcheType.TryGetAtUnchecked)));
+        Ldtoken(new MethodRef(typeof(ArcheType), nameof(ArcheType.TryGetMutAt)));
         Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
         Castclass<MethodInfo>();
         return IL.Return<MethodInfo>();

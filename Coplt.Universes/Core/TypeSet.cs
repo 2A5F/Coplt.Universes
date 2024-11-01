@@ -51,42 +51,48 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     #region Inst
 
-    private sealed class Inst<T>(ulong id, List<TypeMeta> types, ImmutableHashSet<TypeMeta> type_set)
+    private sealed class Inst<TS>(ulong id, List<TypeMeta> types, ImmutableHashSet<TypeMeta> type_set)
         : TypeSet(id, types, type_set)
     {
         #region Contains
 
-        public override bool Contains<TV>() => ContainsValue<T, TV>.Value;
+        public override bool Contains<TV>() => ContainsValue<TS, TV>.Value;
 
         #endregion
 
         #region IndexOf
 
-        public override int IndexOf<TV>() => IndexOfValue<T, TV>.Value;
+        public override int IndexOf<TV>() => IndexOfValue<TS, TV>.Value;
 
         #endregion
 
         #region IsOverlap
 
-        public override bool IsOverlap(TypeSet other) => other.IsOverlap<T>();
+        public override bool IsOverlap(TypeSet other) => other.IsOverlap<TS>();
 
-        private protected override bool IsOverlap<TO>() => IsOverlapValue<TO, T>.Value;
+        private protected override bool IsOverlap<TO>() => IsOverlapValue<TO, TS>.Value;
 
         #endregion
 
         #region IsSubsetOf
 
-        public override bool IsSubsetOf(TypeSet other) => other.IsSubsetOf<T>();
+        public override bool IsSubsetOf(TypeSet other) => other.IsSubsetOf<TS>();
 
-        private protected override bool IsSubsetOf<TO>() => IsSubsetOfValue<TO, T>.Value;
+        private protected override bool IsSubsetOf<TO>() => IsSubsetOfValue<TO, TS>.Value;
 
         #endregion
 
         #region IsSupersetOf
 
-        public override bool IsSupersetOf(TypeSet other) => other.IsSupersetOf<T>();
-        private protected override bool IsSupersetOf<TO>() => IsSupersetOfValue<TO, T>.Value;
+        public override bool IsSupersetOf(TypeSet other) => other.IsSupersetOf<TS>();
+        private protected override bool IsSupersetOf<TO>() => IsSupersetOfValue<TO, TS>.Value;
 
+        #endregion
+        
+        #region ArcheType
+        
+        public override ArcheType ArcheType() => ArcheTypeValue<TS>.Value;
+        
         #endregion
     }
 
@@ -202,10 +208,22 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
     public static TypeSet Get<TSet>() where TSet : struct, ITypeSet => Static<TSet>.s_set;
 
     internal static TypeSet? TryFromId(ulong id) => s_id_to_set.GetValueOrDefault(id);
+    internal static TypeSet TypeSetOf<TS>() => s_unique_to_set[typeof(TS)];
 
-    internal static ImmutableHashSet<TypeMeta> SetOf<T>() => s_unique_to_set[typeof(T)].Set;
+    internal static ImmutableHashSet<TypeMeta> SetOf<TS>() => s_unique_to_set[typeof(TS)].Set;
 
-    internal static List<TypeMeta> ListOf<T>() => s_unique_to_set[typeof(T)].m_types;
+    internal static List<TypeMeta> ListOf<TS>() => s_unique_to_set[typeof(TS)].m_types;
+
+    #endregion
+
+    #region ArcheType
+
+    public abstract ArcheType ArcheType();
+
+    private static class ArcheTypeValue<TS>
+    {
+        public static readonly ArcheType Value = ArcheEmitter.Get(TypeSetOf<TS>());
+    }
 
     #endregion
 

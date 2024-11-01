@@ -15,6 +15,8 @@ public readonly unsafe struct Ref<T>
         m_array = array;
         m_ptr_or_index = (T*)index;
     }
+    
+    public bool IsNull => m_array is null && m_ptr_or_index is null;
 
     public ref readonly T V
     {
@@ -46,6 +48,8 @@ public readonly unsafe struct Mut<T>
         m_ptr_or_index = (T*)index;
     }
 
+    public bool IsNull => m_array is null && m_ptr_or_index is null;
+    
     public ref T V
     {
         get

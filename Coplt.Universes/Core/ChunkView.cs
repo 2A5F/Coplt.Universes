@@ -23,26 +23,37 @@ public readonly unsafe struct ChunkSlice<T>(T* ptr, int length) : IEnumerable<T>
     public ref T this[int index]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get
-        {
-            if (index < 0 || index >= Length) throw new IndexOutOfRangeException();
-            return ref *UncheckedGet(index);
-        }
+        get => ref *At(index);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T* UncheckedGet(int index) => (T*)((byte*)Ptr + TypeUtils.AlignedSizeOf<T>() * index);
+    public T* AtUnchecked(int index) => (T*)((byte*)Ptr + TypeUtils.AlignedSizeOf<T>() * index);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Ref<T> ImmRefAtUnchecked(int index) => new(AtUnchecked(index));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Ref<T> MutRefAtUnchecked(int index) => new(AtUnchecked(index));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T* At(int index)
+    {
+        if (index < 0 || index >= Length) throw new IndexOutOfRangeException();
+        return AtUnchecked(index);
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Ref<T> ImmRefAt(int index)
     {
         if (index < 0 || index >= Length) throw new IndexOutOfRangeException();
-        return new(UncheckedGet(index));
+        return new(AtUnchecked(index));
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Mut<T> MutRefAt(int index)
     {
         if (index < 0 || index >= Length) throw new IndexOutOfRangeException();
-        return new(UncheckedGet(index));
+        return new(AtUnchecked(index));
     }
 
     #endregion
@@ -75,8 +86,8 @@ public readonly unsafe struct ChunkSlice<T>(T* ptr, int length) : IEnumerable<T>
     [method: MethodImpl(MethodImplOptions.AggressiveInlining)]
     public struct Enumerator(ChunkSlice<T> self)
     {
-        private T* m_cur = self.UncheckedGet(-1);
-        private readonly T* m_end = self.UncheckedGet(self.Length);
+        private T* m_cur = self.AtUnchecked(-1);
+        private readonly T* m_end = self.AtUnchecked(self.Length);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
@@ -96,9 +107,9 @@ public readonly unsafe struct ChunkSlice<T>(T* ptr, int length) : IEnumerable<T>
 
     internal sealed class EnumeratorClass(ChunkSlice<T> self) : IEnumerator<T>
     {
-        private T* m_cur = self.UncheckedGet(-1);
-        private readonly T* m_end = self.UncheckedGet(self.Length);
-        public void Reset() => m_cur = self.UncheckedGet(-1);
+        private T* m_cur = self.AtUnchecked(-1);
+        private readonly T* m_end = self.AtUnchecked(self.Length);
+        public void Reset() => m_cur = self.AtUnchecked(-1);
         public bool MoveNext()
         {
             var cur = (T*)((byte*)m_cur + TypeUtils.AlignedSizeOf<T>());
@@ -146,10 +157,10 @@ public readonly unsafe struct ChunkSlice<T>(T* ptr, int length) : IEnumerable<T>
 
     public struct ImmRefEnumerator(ChunkSlice<T> self) : IEnumerator<Ref<T>>
     {
-        private T* m_cur = self.UncheckedGet(-1);
-        private readonly T* m_end = self.UncheckedGet(self.Length);
+        private T* m_cur = self.AtUnchecked(-1);
+        private readonly T* m_end = self.AtUnchecked(self.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Reset() => m_cur = self.UncheckedGet(-1);
+        public void Reset() => m_cur = self.AtUnchecked(-1);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
@@ -170,10 +181,10 @@ public readonly unsafe struct ChunkSlice<T>(T* ptr, int length) : IEnumerable<T>
 
     public struct MutRefEnumerator(ChunkSlice<T> self) : IEnumerator<Mut<T>>
     {
-        private T* m_cur = self.UncheckedGet(-1);
-        private readonly T* m_end = self.UncheckedGet(self.Length);
+        private T* m_cur = self.AtUnchecked(-1);
+        private readonly T* m_end = self.AtUnchecked(self.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Reset() => m_cur = self.UncheckedGet(-1);
+        public void Reset() => m_cur = self.AtUnchecked(-1);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {

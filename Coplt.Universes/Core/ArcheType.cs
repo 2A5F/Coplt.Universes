@@ -1,6 +1,5 @@
 using System.Collections.Frozen;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
 namespace Coplt.Universes.Core;
@@ -10,7 +9,6 @@ public abstract class ArcheType
     #region Fields
 
     public TypeSet TypeSet { get; internal set; } = null!;
-    public ModuleBuilder Module { get; internal set; } = null!;
     public Type Type { get; internal set; } = null!;
     public Type ChunkType { get; internal set; } = null!;
     public int ChunkSize { get; internal set; }
@@ -38,7 +36,7 @@ public abstract class ArcheType
 
     #region Get
 
-    public static ArcheType Get(TypeSet set) => ArcheEmitter.Get(set);
+    public static ArcheType Get(TypeSet set) => set.ArcheType();
 
     #endregion
 
@@ -53,16 +51,23 @@ public abstract class ArcheType
 
         #region Accessor
 
-        /// <inheritdoc cref="TryGetAtUnchecked{T}(int)"/>
-        /// <exception cref="ArgumentOutOfRangeException">The current index exceeds the <see cref="Count"/></exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public abstract ref T TryGetAt<T>(int index);
-
-        /// <summary>Try to get a reference to <see cref="T"/> component</summary>
+        /// <summary>Try to get a reference to <see cref="T"/> component, index range not checked</summary>
         /// <typeparam name="T">The component type</typeparam>
         /// <returns><c>null</c> if the chunk does not contain <see cref="T"/> component.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public abstract ref T TryGetAtUnchecked<T>(int index);
+        public abstract ref T TryGetAt<T>(int index);
+
+        /// <summary>Try to get a reference to <see cref="T"/> component, index range not checked</summary>
+        /// <typeparam name="T">The component type</typeparam>
+        /// <returns><c>null</c> if the chunk does not contain <see cref="T"/> component.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public abstract Ref<T> TryGetImmAt<T>(int index);
+        
+        /// <summary>Try to get a reference to <see cref="T"/> component, index range not checked</summary>
+        /// <typeparam name="T">The component type</typeparam>
+        /// <returns><c>null</c> if the chunk does not contain <see cref="T"/> component.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public abstract Mut<T> TryGetMutAt<T>(int index);
 
         #endregion
     }
@@ -73,11 +78,15 @@ public abstract class ArcheType
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ref T TryGetAt<C, T>(C chunk, int index) where C : Chunk
-        => ref ChunkGetAtEmitter<C, T>.Instance.TryGetAt(chunk, index);
+        => ref ChunkGetAtAccessor<C, T>.Instance.TryGetAt(chunk, index);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ref T TryGetAtUnchecked<C, T>(C chunk, int index) where C : Chunk
-        => ref ChunkGetAtEmitter<C, T>.Instance.TryGetAtUnchecked(chunk, index);
+    public static Ref<T> TryGetImmAt<C, T>(C chunk, int index) where C : Chunk
+        => ChunkGetAtAccessor<C, T>.Instance.TryGetImmAt(chunk, index);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Mut<T> TryGetMutAt<C, T>(C chunk, int index) where C : Chunk
+        => ChunkGetAtAccessor<C, T>.Instance.TryGetMutAt(chunk, index);
 
     #endregion
 }
