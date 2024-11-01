@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Coplt.Universes.Utilities;
 
 namespace Coplt.Universes.Core;
@@ -37,7 +38,7 @@ public sealed unsafe class DefaultUnmanagedAllocator : UnmanagedAllocator
         if (size >= int.MaxValue) throw new ArgumentException($"Size too large, must < {int.MaxValue}", nameof(size));
         if (!nuint.IsPow2(align)) throw new ArgumentException("Align must be power of 2", nameof(align));
         var arr = GC.AllocateUninitializedArray<byte>((int)(size + align - 1), true);
-        var ptr = (nuint)Unsafe.AsPointer(ref arr[0]);
+        var ptr = (nuint)Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(arr));
         var new_ptr = TypeUtils.AlignUp(ptr, align);
         Debug.Assert(new_ptr + size <= ptr + size + align - 1);
         return new ArrayMemoryHandle(arr, (void*)new_ptr);

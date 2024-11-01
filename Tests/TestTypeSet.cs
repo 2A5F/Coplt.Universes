@@ -1,3 +1,4 @@
+using Coplt.Universes;
 using Coplt.Universes.Core;
 
 namespace Tests;
@@ -10,7 +11,8 @@ public class TestTypeSet
     {
         var set1 = TypeSet.Of<int, float>();
         Console.WriteLine(set1);
-        CollectionAssert.AreEquivalent(set1, (TypeMeta[]) [TypeMeta.Of<int>(), TypeMeta.Of<float>()]);
+        CollectionAssert.AreEquivalent(set1,
+            (TypeMeta[]) [TypeMeta.Of<Entity>(), TypeMeta.Of<int>(), TypeMeta.Of<float>()]);
     }
 
     [Test]

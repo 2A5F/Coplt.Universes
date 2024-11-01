@@ -6,10 +6,16 @@ using System.Runtime.InteropServices;
 
 namespace Coplt.Universes.Core;
 
+#region ITypeSet
+
 public interface ITypeSet
 {
-    public ImmutableHashSet<TypeMeta> GetTypes();
+    public static abstract ImmutableHashSet<TypeMeta> Types { get; }
 }
+
+#endregion
+
+#region TypeSetId
 
 public readonly record struct TypeSetId(ulong Id)
 {
@@ -22,28 +28,30 @@ public readonly record struct TypeSetId(ulong Id)
     #endregion
 }
 
+#endregion
+
+#region TypeSet
+
 public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSet>
 {
     #region Fields
 
     private readonly ulong m_id;
-    private readonly List<TypeMeta> m_types;
-    private readonly ImmutableHashSet<TypeMeta> m_type_set;
+    private readonly SortedSet m_sorted_set;
 
-    private protected TypeSet(ulong id, List<TypeMeta> types, ImmutableHashSet<TypeMeta> type_set)
+    private protected TypeSet(ulong id, SortedSet set)
     {
         m_id = id;
-        m_types = types;
-        m_type_set = type_set;
+        m_sorted_set = set;
     }
 
-    public int Count => m_types.Count;
+    public int Count => m_sorted_set.Types.Count;
 
-    public TypeMeta this[int index] => m_types[index];
+    public TypeMeta this[int index] => m_sorted_set.Types[index];
 
-    public ReadOnlySpan<TypeMeta> Span => CollectionsMarshal.AsSpan(m_types);
+    public ReadOnlySpan<TypeMeta> Span => CollectionsMarshal.AsSpan(m_sorted_set.Types);
 
-    public ImmutableHashSet<TypeMeta> Set => m_type_set;
+    public ImmutableHashSet<TypeMeta> Set => m_sorted_set.RawSet;
 
     public TypeSetId Id => new(m_id);
 
@@ -51,8 +59,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     #region Inst
 
-    private sealed class Inst<TS>(ulong id, List<TypeMeta> types, ImmutableHashSet<TypeMeta> type_set)
-        : TypeSet(id, types, type_set)
+    private sealed class Inst<TS>(ulong id, SortedSet set)
+        : TypeSet(id, set)
     {
         #region Contains
 
@@ -88,11 +96,11 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
         private protected override bool IsSupersetOf<TO>() => IsSupersetOfValue<TO, TS>.Value;
 
         #endregion
-        
+
         #region ArcheType
-        
+
         public override ArcheType ArcheType() => ArcheTypeValue<TS>.Value;
-        
+
         #endregion
     }
 
@@ -130,7 +138,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     private static class IsOverlapValue<TA, TB>
     {
-        public static readonly bool Value = SetOf<TA>().Overlaps(SetOf<TB>());
+        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>())
+            .Overlaps(SetOf<TB>().Remove(TypeMeta.Of<Entity>()));
     }
 
     #endregion
@@ -143,7 +152,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     private static class IsSubsetOfValue<TA, TB>
     {
-        public static readonly bool Value = SetOf<TA>().IsSubsetOf(SetOf<TB>());
+        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>())
+            .IsSubsetOf(SetOf<TB>().Remove(TypeMeta.Of<Entity>()));
     }
 
     #endregion
@@ -156,7 +166,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     private static class IsSupersetOfValue<TA, TB>
     {
-        public static readonly bool Value = SetOf<TA>().IsSupersetOf(SetOf<TB>());
+        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>())
+            .IsSupersetOf(SetOf<TB>().Remove(TypeMeta.Of<Entity>()));
     }
 
     #endregion
@@ -172,9 +183,22 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
     private static readonly ConcurrentDictionary<Type, TypeSet> s_unique_to_set = new();
 
     // ReSharper disable once InconsistentNaming
-    private readonly struct SortedSet(List<TypeMeta> Types) : IEquatable<SortedSet>
+    internal readonly struct SortedSet : IEquatable<SortedSet>
     {
-        public readonly List<TypeMeta> Types = Types;
+        public static SortedSet Create(ImmutableHashSet<TypeMeta> RawSet)
+        {
+            var set = RawSet;
+            set = set.Add(TypeMeta.Of<Entity>());
+            return new(SortType(set), set);
+        }
+        private SortedSet(List<TypeMeta> types, ImmutableHashSet<TypeMeta> rawSet)
+        {
+            Types = types;
+            RawSet = rawSet;
+        }
+
+        public readonly List<TypeMeta> Types;
+        public readonly ImmutableHashSet<TypeMeta> RawSet;
         public bool Equals(SortedSet other) => Types.SequenceEqual(other.Types);
         public override bool Equals(object? obj) => obj is SortedSet other && Equals(other);
         public override int GetHashCode()
@@ -190,29 +214,32 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
         public static bool operator !=(SortedSet left, SortedSet right) => !left.Equals(right);
     }
 
-    private static class Static<TSet> where TSet : struct, ITypeSet
+    private static class Static<TSet> where TSet : ITypeSet
     {
-        public static readonly TypeSet s_set = s_set_cache.GetOrAdd(new(SortType(default(TSet).GetTypes())),
-            static set =>
-            {
-                var unique = UniqueTypeEmitter.Emit();
-                var id = Interlocked.Increment(ref s_set_id_inc);
-                var type = typeof(Inst<>).MakeGenericType(unique);
-                var inst = (TypeSet)Activator.CreateInstance(type, id, set.Types, default(TSet).GetTypes())!;
-                s_id_to_set[id] = inst;
-                s_unique_to_set[unique] = inst;
-                return inst;
-            });
+        // ReSharper disable once StaticMemberInGenericType
+        public static readonly TypeSet s_set = Get(TSet.Types);
     }
 
-    public static TypeSet Get<TSet>() where TSet : struct, ITypeSet => Static<TSet>.s_set;
+    public static TypeSet Get(ImmutableHashSet<TypeMeta> types) => s_set_cache.GetOrAdd(SortedSet.Create(types),
+        static set =>
+        {
+            var unique = UniqueTypeEmitter.Emit();
+            var id = Interlocked.Increment(ref s_set_id_inc);
+            var type = typeof(Inst<>).MakeGenericType(unique);
+            var inst = (TypeSet)Activator.CreateInstance(type, id, set)!;
+            s_id_to_set[id] = inst;
+            s_unique_to_set[unique] = inst;
+            return inst;
+        });
+
+    public static TypeSet Get<TSet>() where TSet : ITypeSet => Static<TSet>.s_set;
 
     internal static TypeSet? TryFromId(ulong id) => s_id_to_set.GetValueOrDefault(id);
     internal static TypeSet TypeSetOf<TS>() => s_unique_to_set[typeof(TS)];
 
     internal static ImmutableHashSet<TypeMeta> SetOf<TS>() => s_unique_to_set[typeof(TS)].Set;
 
-    internal static List<TypeMeta> ListOf<TS>() => s_unique_to_set[typeof(TS)].m_types;
+    internal static List<TypeMeta> ListOf<TS>() => s_unique_to_set[typeof(TS)].m_sorted_set.Types;
 
     #endregion
 
@@ -244,16 +271,16 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     #region GetEnumerator
 
-    public List<TypeMeta>.Enumerator GetEnumerator() => m_types.GetEnumerator();
-    IEnumerator<TypeMeta> IEnumerable<TypeMeta>.GetEnumerator() => m_types.GetEnumerator();
-    IEnumerator IEnumerable.GetEnumerator() => m_types.GetEnumerator();
+    public List<TypeMeta>.Enumerator GetEnumerator() => m_sorted_set.Types.GetEnumerator();
+    IEnumerator<TypeMeta> IEnumerable<TypeMeta>.GetEnumerator() => m_sorted_set.Types.GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => m_sorted_set.Types.GetEnumerator();
 
     #endregion
 
     #region ToString
 
     public override string ToString() =>
-        $"TypeSet {{ Id = {m_id}, Types = {string.Join(", ", m_types.Select(static t => t.Type))} }}";
+        $"TypeSet {{ Id = {m_id}, Types = {string.Join(", ", m_sorted_set.Types.Select(static t => t.Type))} }}";
 
     #endregion
 
@@ -270,48 +297,35 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     #endregion
 
-    #region S
+    #region Of
 
-    // internal readonly struct DynS<T> : ITypeSet
-    // {
-    //     // ReSharper disable once StaticMemberInGenericType
-    //     public static ImmutableHashSet<TypeMeta> Types
-    //     {
-    //         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //         get;
-    //         set;
-    //     } = [];
-    //     public ImmutableHashSet<TypeMeta> GetTypes() => Types;
-    // }
+    public static TypeSet Of() => Get<EmptyTypeSet>();
 
-    public readonly struct S<T> : ITypeSet
-    {
-        public ImmutableHashSet<TypeMeta> GetTypes() => Types;
-        public S<S<T>, TA> A<TA>() => default;
+    #endregion
 
-        private static ImmutableHashSet<TypeMeta> Types
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get;
-        } = ImmutableHashSet.Create(TypeMeta.Of<Entity>(), TypeMeta.Of<T>());
+    #region Builder
 
-        public TypeSet Build() => Get<S<T>>();
-    }
-
-    public readonly struct S<TB, T> : ITypeSet
-        where TB : struct, ITypeSet
-    {
-        public ImmutableHashSet<TypeMeta> GetTypes() => Types;
-        public S<S<TB, T>, TA> A<TA>() => default;
-
-        private static ImmutableHashSet<TypeMeta> Types
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get;
-        } = default(TB).GetTypes().Add(TypeMeta.Of<T>());
-
-        public TypeSet Build() => Get<S<TB, T>>();
-    }
+    public static TypeSetBuilder Builder() => new(ImmutableHashSet<TypeMeta>.Empty);
 
     #endregion
 }
+
+#endregion
+
+#region EmptyTypeSet
+
+public readonly struct EmptyTypeSet : ITypeSet
+{
+    public static ImmutableHashSet<TypeMeta> Types => ImmutableHashSet<TypeMeta>.Empty;
+}
+
+#endregion
+
+#region TypeSetBuilder
+
+public readonly partial record struct TypeSetBuilder(ImmutableHashSet<TypeMeta> Types)
+{
+    public TypeSet Build() => TypeSet.Get(Types);
+}
+
+#endregion

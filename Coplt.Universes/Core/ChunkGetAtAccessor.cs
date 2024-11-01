@@ -49,9 +49,11 @@ public abstract class ChunkGetAtAccessor<C, T> where C : ArcheType.Chunk
         var get_span_view = typeof(C).GetProperty($"SpanView{type_index}")!.GetMethod!;
         var get_slice_view = typeof(C).GetProperty($"SliceView{type_index}")?.GetMethod!;
 
-        var mod = ArcheEmitter.mod;
         var guid = Guid.NewGuid();
-        var typ = mod.DefineType($"ChunkGetAt.Impl[{guid:N}]", TypeAttributes.Public | TypeAttributes.Sealed,
+        var asm_name = $"{nameof(Coplt)}.{nameof(Universes)}.{nameof(Core)}.ArcheAccessor{arche.TypeSet.Id.Id}.{guid:N}";
+        var asm = AssemblyBuilder.DefineDynamicAssembly(new(asm_name), AssemblyBuilderAccess.RunAndCollect);
+        var mod = asm.DefineDynamicModule(asm_name);
+        var typ = mod.DefineType($"ChunkGetAtAccessor[{arche.TypeSet.Id.Id}]", TypeAttributes.Public | TypeAttributes.Sealed,
             typeof(ChunkGetAtAccessor<C, T>));
 
         {

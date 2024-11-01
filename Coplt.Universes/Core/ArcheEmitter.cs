@@ -13,11 +13,6 @@ public static class ArcheEmitter
 
     public static ArcheType Get(TypeSet set) => s_cache.GetOrAdd(set, Emit);
 
-    private const string asm_name = $"{nameof(Coplt)}.{nameof(Universes)}.{nameof(Core)}.Arches";
-    private static readonly AssemblyBuilder asm =
-        AssemblyBuilder.DefineDynamicAssembly(new(asm_name), AssemblyBuilderAccess.RunAndCollect);
-    internal static readonly ModuleBuilder mod = asm.DefineDynamicModule(asm_name);
-
     private static ArcheType Emit(TypeSet set)
     {
         #region Calc Chunk Size, Stride
@@ -54,7 +49,11 @@ public static class ArcheEmitter
         #endregion
 
         #region Define Type
-        
+
+        var asm_name = $"{nameof(Coplt)}.{nameof(Universes)}.{nameof(Core)}.Arche{set.Id.Id}";
+        var asm = AssemblyBuilder.DefineDynamicAssembly(new(asm_name), AssemblyBuilderAccess.RunAndCollect);
+        var mod = asm.DefineDynamicModule(asm_name);
+
         var arche_typ_name = $"{nameof(Coplt)}.{nameof(Universes)}.{nameof(Core)}.Arche{set.Id.Id}";
         var arche_typ = mod.DefineType(arche_typ_name,
             TypeAttributes.Public | TypeAttributes.Sealed, typeof(ArcheType));
@@ -318,7 +317,7 @@ public static class ArcheEmitter
             ilg.Emit(OpCodes.Call, EmitterHelper.MethodOf__ArcheType_TryGetAt().MakeGenericMethod(chunk_typ, T));
             ilg.Emit(OpCodes.Ret);
         }
-        
+
         {
             var try_get_at = chunk_typ.DefineMethod(nameof(ArcheType.Chunk.TryGetImmAt),
                 MethodAttributes.Public | MethodAttributes.Virtual);
@@ -332,7 +331,7 @@ public static class ArcheEmitter
             ilg.Emit(OpCodes.Call, EmitterHelper.MethodOf__ArcheType_TryGetImmAt().MakeGenericMethod(chunk_typ, T));
             ilg.Emit(OpCodes.Ret);
         }
-        
+
         {
             var try_get_at = chunk_typ.DefineMethod(nameof(ArcheType.Chunk.TryGetMutAt),
                 MethodAttributes.Public | MethodAttributes.Virtual);
