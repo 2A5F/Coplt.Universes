@@ -113,9 +113,10 @@ public static class EmitterHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MethodInfo MethodOf__ArcheType_Chunk_get_Count()
+    public static MethodInfo MethodOf__ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual()
     {
-        Ldtoken(MethodRef.PropertyGet(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.Count)));
+        Ldtoken(new MethodRef(typeof(ArgumentOutOfRangeException),
+            nameof(ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual)));
         Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
         Castclass<MethodInfo>();
         return IL.Return<MethodInfo>();
@@ -134,6 +135,51 @@ public static class EmitterHelper
     public static MethodInfo MethodOf__ArcheType_Chunk_set_ArcheType()
     {
         Ldtoken(MethodRef.PropertySet(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.ArcheType)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_Chunk_get_Count()
+    {
+        Ldtoken(MethodRef.PropertyGet(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.Count)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_Chunk_TryGetAt()
+    {
+        Ldtoken(new MethodRef(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.TryGetAt)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_TryGetAt()
+    {
+        Ldtoken(new MethodRef(typeof(ArcheType), nameof(ArcheType.TryGetAt)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_Chunk_TryGetAtUnchecked()
+    {
+        Ldtoken(new MethodRef(typeof(ArcheType.Chunk), nameof(ArcheType.Chunk.TryGetAtUnchecked)));
+        Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
+        Castclass<MethodInfo>();
+        return IL.Return<MethodInfo>();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MethodInfo MethodOf__ArcheType_TryGetAtUnchecked()
+    {
+        Ldtoken(new MethodRef(typeof(ArcheType), nameof(ArcheType.TryGetAtUnchecked)));
         Call(new MethodRef(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), typeof(RuntimeMethodHandle)));
         Castclass<MethodInfo>();
         return IL.Return<MethodInfo>();

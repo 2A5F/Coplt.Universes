@@ -36,9 +36,9 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
         m_types = types;
         m_type_set = type_set;
     }
-    
+
     public int Count => m_types.Count;
-    
+
     public TypeMeta this[int index] => m_types[index];
 
     public ReadOnlySpan<TypeMeta> Span => CollectionsMarshal.AsSpan(m_types);
@@ -54,6 +54,18 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
     private sealed class Inst<T>(ulong id, List<TypeMeta> types, ImmutableHashSet<TypeMeta> type_set)
         : TypeSet(id, types, type_set)
     {
+        #region Contains
+
+        public override bool Contains<TV>() => ContainsValue<T, TV>.Value;
+
+        #endregion
+
+        #region IndexOf
+
+        public override int IndexOf<TV>() => IndexOfValue<T, TV>.Value;
+
+        #endregion
+
         #region IsOverlap
 
         public override bool IsOverlap(TypeSet other) => other.IsOverlap<T>();
@@ -81,6 +93,28 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
     #endregion
 
     #region Query
+
+    #region Contains
+
+    public abstract bool Contains<T>();
+
+    private static class ContainsValue<TS, TV>
+    {
+        public static readonly bool Value = IndexOfValue<TS, TV>.Value >= 0;
+    }
+
+    #endregion
+
+    #region IndexOf
+
+    public abstract int IndexOf<T>();
+
+    private static class IndexOfValue<TS, TV>
+    {
+        public static readonly int Value = ListOf<TS>().FindIndex(static t => t.Id == TypeId.Of<TV>());
+    }
+
+    #endregion
 
     #region IsOverlap
 
@@ -171,6 +205,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     internal static ImmutableHashSet<TypeMeta> SetOf<T>() => s_unique_to_set[typeof(T)].Set;
 
+    internal static List<TypeMeta> ListOf<T>() => s_unique_to_set[typeof(T)].m_types;
+
     #endregion
 
     #region Equals
@@ -185,8 +221,7 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
     public override bool Equals(object? obj) => obj is TypeSet other && Equals(other);
 
     public override int GetHashCode() => m_id.GetHashCode();
-    
-    
+
     #endregion
 
     #region GetEnumerator
