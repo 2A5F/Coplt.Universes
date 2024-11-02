@@ -2,10 +2,11 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using Coplt.Universes.Collections.Magics;
 using Coplt.Universes.Utilities;
+using static Coplt.Universes.Collections.ChunkedVector;
 
 namespace Coplt.Universes.Collections;
 
-public abstract class ChunkedVector
+public static class ChunkedVector
 {
     public const int MinChunkSize = 4;
 
@@ -32,13 +33,13 @@ public abstract class ChunkedVector
 /// <br/>
 /// Note: Reference stability when only add new items
 /// </summary>
-public class ChunkedVector<T, TChunkSize, TDeletingBehavior> : ChunkedVector
+public struct SChunkedVector<T, TChunkSize, TDeletingBehavior>()
     where TChunkSize : struct, IConst<int>
     where TDeletingBehavior : struct, IConst<ChunkedVector.DeletingBehavior>
 {
     #region Static
 
-    static ChunkedVector()
+    static SChunkedVector()
     {
         if (!int.IsPow2(TChunkSize.Value))
             throw new ArgumentException("ChunkSize must be pow of 2", nameof(TChunkSize));
@@ -52,15 +53,15 @@ public class ChunkedVector<T, TChunkSize, TDeletingBehavior> : ChunkedVector
 
     #region Fields
 
-    private readonly Vector<T[]> m_chunks = new();
-    private int m_size;
+    private SVector<T[]> m_chunks = new();
+    private int m_cur_chunk;
     private int m_size_in_chunk;
 
     #endregion
 
     #region Count
 
-    public int Count => m_size;
+    public int Count => m_cur_chunk * TChunkSize.Value + m_size_in_chunk;
 
     public int ChunkCount => m_chunks.Count;
 
@@ -78,7 +79,7 @@ public class ChunkedVector<T, TChunkSize, TDeletingBehavior> : ChunkedVector
     {
         get
         {
-            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)m_size, nameof(index));
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)Count, nameof(index));
             return ref GetUnchecked(index);
         }
     }
@@ -115,7 +116,6 @@ public class ChunkedVector<T, TChunkSize, TDeletingBehavior> : ChunkedVector
         var chunk = m_chunks.Count - 1;
         var index = m_size_in_chunk;
         m_size_in_chunk++;
-        m_size++;
         return ref GetUnchecked((uint)chunk, (uint)index);
     }
 
