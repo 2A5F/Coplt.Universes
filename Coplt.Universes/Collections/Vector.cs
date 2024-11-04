@@ -9,6 +9,7 @@ namespace Coplt.Universes.Collections;
 /// <summary>
 /// List variant that allows skipping checks and exposing internal arrays
 /// </summary>
+[StructLayout(LayoutKind.Auto)]
 public struct SVector<T> : IList<T>, IReadOnlyList<T>
 {
     #region Fields
@@ -41,13 +42,13 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
 
     #region IsReadOnly
 
-    public bool IsReadOnly => false;
+    public readonly bool IsReadOnly => false;
 
     #endregion
 
     #region Count
 
-    public int Count => m_size;
+    public readonly int Count => m_size;
 
     #endregion
 
@@ -55,7 +56,7 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
 
     public int Capacity
     {
-        get => m_items.Length;
+        readonly get => m_items.Length;
         set
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(value, m_size, nameof(Capacity));
@@ -99,13 +100,13 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
 
     #region Get
 
-    public ref T GetPinnableReference() => ref MemoryMarshal.GetArrayDataReference(m_items);
+    public readonly ref T GetPinnableReference() => ref MemoryMarshal.GetArrayDataReference(m_items);
 
-    public T[] UnsafeInternalArray => m_items;
+    public readonly T[] UnsafeInternalArray => m_items;
 
-    public Span<T> Span => m_items.AsSpan(0, m_size);
+    public readonly Span<T> Span => m_items.AsSpan(0, m_size);
 
-    public Memory<T> Memory => m_items.AsMemory(0, m_size);
+    public readonly Memory<T> Memory => m_items.AsMemory(0, m_size);
 
     T IList<T>.this[int index]
     {
@@ -113,7 +114,7 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
         set => this[index] = value;
     }
     T IReadOnlyList<T>.this[int index] => this[index];
-    public ref T this[int index]
+    public readonly ref T this[int index]
     {
         get
         {
@@ -122,7 +123,7 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
         }
     }
 
-    public ref T this[uint index]
+    public readonly ref T this[uint index]
     {
         get
         {
@@ -131,38 +132,38 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
         }
     }
 
-    public ref T GetUnchecked(int index) => ref m_items.GetUnchecked(index);
-    public ref T GetUnchecked(uint index) => ref m_items.GetUnchecked(index);
+    public readonly ref T GetUnchecked(int index) => ref m_items.GetUnchecked(index);
+    public readonly ref T GetUnchecked(uint index) => ref m_items.GetUnchecked(index);
 
-    public Ref<T> ImmAt(int index)
+    public readonly Ref<T> ImmAt(int index)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)m_size, nameof(index));
         return ImmAtUnchecked(index);
     }
 
-    public Ref<T> ImmAt(uint index)
+    public readonly Ref<T> ImmAt(uint index)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, (uint)m_size, nameof(index));
         return ImmAtUnchecked(index);
     }
 
-    public Mut<T> MutAt(int index)
+    public readonly Mut<T> MutAt(int index)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)m_size, nameof(index));
         return MutAtUnchecked(index);
     }
 
-    public Mut<T> MutAt(uint index)
+    public readonly Mut<T> MutAt(uint index)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, (uint)m_size, nameof(index));
         return MutAtUnchecked(index);
     }
 
-    public Ref<T> ImmAtUnchecked(int index) => new(m_items, (nuint)index);
-    public Ref<T> ImmAtUnchecked(uint index) => new(m_items, index);
+    public readonly Ref<T> ImmAtUnchecked(int index) => new(m_items, (nuint)index);
+    public readonly Ref<T> ImmAtUnchecked(uint index) => new(m_items, index);
 
-    public Mut<T> MutAtUnchecked(int index) => new(m_items, (nuint)index);
-    public Mut<T> MutAtUnchecked(uint index) => new(m_items, index);
+    public readonly Mut<T> MutAtUnchecked(int index) => new(m_items, (nuint)index);
+    public readonly Mut<T> MutAtUnchecked(uint index) => new(m_items, index);
 
     #endregion
 
@@ -296,9 +297,9 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
 
     #region Find
 
-    public int IndexOf(T item) => Array.IndexOf(m_items, item, 0, m_size);
+    public readonly int IndexOf(T item) => Array.IndexOf(m_items, item, 0, m_size);
 
-    public bool Contains(T item) => IndexOf(item) >= 0;
+    public readonly bool Contains(T item) => IndexOf(item) >= 0;
 
     #endregion
 
@@ -335,18 +336,19 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
 
     #region CopyTo
 
-    public void CopyTo(Span<T> span) => Span.CopyTo(span);
+    public readonly void CopyTo(Span<T> span) => Span.CopyTo(span);
 
-    public void CopyTo(T[] array, int arrayIndex) => Array.Copy(m_items, 0, array, arrayIndex, m_size);
+    public readonly void CopyTo(T[] array, int arrayIndex) => Array.Copy(m_items, 0, array, arrayIndex, m_size);
 
     #endregion
 
     #region Enumerator
 
-    public Enumerator GetEnumerator() => new(in this);
+    public readonly Enumerator GetEnumerator() => new(in this);
     IEnumerator<T> IEnumerable<T>.GetEnumerator() => new EnumeratorClass(in this);
     IEnumerator IEnumerable.GetEnumerator() => new EnumeratorClass(in this);
 
+    [StructLayout(LayoutKind.Auto)]
     public ref struct Enumerator(scoped in SVector<T> self)
     {
         private readonly T[] m_items = self.m_items;

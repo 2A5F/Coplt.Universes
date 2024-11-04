@@ -1,6 +1,6 @@
 using Coplt.Universes.Core;
 
-namespace Tests;
+namespace Tests.Emits;
 
 [Parallelizable]
 public class TestEmitFixedArray

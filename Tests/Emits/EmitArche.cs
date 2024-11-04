@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Coplt.Universes.Core;
 
-namespace Tests;
+namespace Tests.Emits;
 
 [Align(16)]
 public struct Position
