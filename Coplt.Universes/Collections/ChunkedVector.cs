@@ -449,7 +449,7 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
     }
 
     [StructLayout(LayoutKind.Auto)]
-    public ref struct Enumerator(scoped in SChunkedVector<T, TChunkSize, TBehavior> self)
+    public ref struct Enumerator(scoped in SChunkedVector<T, TChunkSize, TBehavior> self) : IEnumerator<T>
     {
         private int m_index = -1;
         private readonly int m_last_chunk_size = self.m_size_in_chunk;
@@ -489,11 +489,24 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
             }
         }
 
-        public ref T Current
+        public readonly ref T Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_cur_chunk.GetUnchecked(m_index);
         }
+
+        readonly T IEnumerator<T>.Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Current;
+        }
+        readonly object? IEnumerator.Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Current;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly void IDisposable.Dispose() { }
     }
 
     public class EnumeratorClass(scoped in SChunkedVector<T, TChunkSize, TBehavior> self) : IEnumerator<T>
@@ -546,7 +559,7 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
     }
 
     [StructLayout(LayoutKind.Auto)]
-    public ref struct ReverseEnumerator(scoped in SChunkedVector<T, TChunkSize, TBehavior> self)
+    public ref struct ReverseEnumerator(scoped in SChunkedVector<T, TChunkSize, TBehavior> self) : IEnumerator<T>
     {
         private int m_index = self.m_size_in_chunk;
         private ref T[] m_cur_chunk = ref self.m_chunks.GetUnchecked(self.m_cur_chunk);
@@ -580,11 +593,24 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
             return true;
         }
 
-        public ref T Current
+        public readonly ref T Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_cur_chunk.GetUnchecked(m_index);
         }
+
+        readonly T IEnumerator<T>.Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Current;
+        }
+        readonly object? IEnumerator.Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Current;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly void IDisposable.Dispose() { }
     }
 
     public class ReverseEnumeratorClass(scoped in SChunkedVector<T, TChunkSize, TBehavior> self)

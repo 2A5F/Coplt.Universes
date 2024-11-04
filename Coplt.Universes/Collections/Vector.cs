@@ -32,7 +32,7 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
         else m_items = new T[capacity];
     }
 
-    public SVector(ReadOnlySpan<T> span)
+    public SVector(params ReadOnlySpan<T> span)
     {
         m_items = span.ToArray();
         m_size = span.Length;
@@ -179,7 +179,7 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
         return ref GetUnchecked(index);
     }
 
-    public void AddRange(ReadOnlySpan<T> items)
+    public void AddRange(params ReadOnlySpan<T> items)
     {
         var count = items.Length;
         if (count == 0) return;
@@ -233,13 +233,13 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
         return ref GetUnchecked(index);
     }
 
-    public void InsertRange(int index, ReadOnlySpan<T> items)
+    public void InsertRange(int index, params ReadOnlySpan<T> items)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)index, (uint)m_size, nameof(index));
         InsertRangeUnchecked(index, items);
     }
 
-    public void InsertRangeUnchecked(int index, ReadOnlySpan<T> items)
+    public void InsertRangeUnchecked(int index, params ReadOnlySpan<T> items)
     {
         var count = items.Length;
         if (count == 0) return;
@@ -349,7 +349,7 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
     IEnumerator IEnumerable.GetEnumerator() => new EnumeratorClass(in this);
 
     [StructLayout(LayoutKind.Auto)]
-    public ref struct Enumerator(scoped in SVector<T> self)
+    public ref struct Enumerator(scoped in SVector<T> self) : IEnumerator<T>
     {
         private readonly T[] m_items = self.m_items;
         private ref T m_cur = ref self.m_items.GetUnchecked(-1);
@@ -369,11 +369,23 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
             return true;
         }
 
-        public ref T Current
+        public readonly ref T Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_cur;
         }
+        readonly T IEnumerator<T>.Current 
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Current;
+        }
+        readonly object? IEnumerator.Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Current;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly void IDisposable.Dispose() { }
     }
 
     public class EnumeratorClass(scoped in SVector<T> self) : IEnumerator<T>
@@ -426,7 +438,7 @@ public class Vector<T> : IList<T>, IReadOnlyList<T>
 
     public Vector(int capacity) => m_inner = new(capacity);
 
-    public Vector(ReadOnlySpan<T> span) => m_inner = new(span);
+    public Vector(params ReadOnlySpan<T> span) => m_inner = new(span);
 
     #endregion
 
@@ -497,7 +509,7 @@ public class Vector<T> : IList<T>, IReadOnlyList<T>
 
     public ref T UnsafeAdd() => ref m_inner.UnsafeAdd();
 
-    public void AddRange(ReadOnlySpan<T> items) => m_inner.AddRange(items);
+    public void AddRange(params ReadOnlySpan<T> items) => m_inner.AddRange(items);
 
     public void AddRange<C>(C items) where C : IEnumerable<T> => m_inner.AddRange(items);
 
@@ -513,9 +525,10 @@ public class Vector<T> : IList<T>, IReadOnlyList<T>
 
     public ref T UnsafeInsertUnchecked(int index) => ref m_inner.UnsafeInsertUnchecked(index);
 
-    public void InsertRange(int index, ReadOnlySpan<T> items) => m_inner.InsertRange(index, items);
+    public void InsertRange(int index, params ReadOnlySpan<T> items) => m_inner.InsertRange(index, items);
 
-    public void InsertRangeUnchecked(int index, ReadOnlySpan<T> items) => m_inner.InsertRangeUnchecked(index, items);
+    public void InsertRangeUnchecked(int index, params ReadOnlySpan<T> items) =>
+        m_inner.InsertRangeUnchecked(index, items);
 
     public void InsertRange<C>(int index, C items) where C : IEnumerable<T>
     {
