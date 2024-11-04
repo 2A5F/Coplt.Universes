@@ -227,7 +227,7 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
         return ref UnsafeInsertUncheckedSwapToEnd(chunk, at);
     }
 
-    public ref T UnsafeInsertUncheckedMoveItems(uint chunk, uint at)
+    private ref T UnsafeInsertUncheckedMoveItems(uint chunk, uint at)
     {
         var old_size = m_size_in_chunk;
         UnsafeAdd();
@@ -255,14 +255,14 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
         return ref GetUnchecked(chunk, at);
     }
 
-    public ref T UnsafeInsertUncheckedSwapToEnd(uint chunk, uint at)
+    private ref T UnsafeInsertUncheckedSwapToEnd(uint chunk, uint at)
     {
         ref var end = ref UnsafeAdd();
         ref var pos = ref GetUnchecked(chunk, at);
         end = pos;
-        #pragma warning disable CS8619
+#pragma warning disable CS8619
         return ref pos;
-        #pragma warning restore CS8619
+#pragma warning restore CS8619
     }
 
     #endregion
@@ -282,31 +282,31 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
     {
         var (chunk, at) = CalcIndex(index);
         CheckRange(chunk, at);
-        UnsafeRemoveAt(chunk, at);
+        RemoveAtUnchecked(chunk, at);
     }
 
     public void RemoveAt(int chunk, int at) => RemoveAt((uint)chunk, (uint)at);
     public void RemoveAt(uint chunk, uint at)
     {
         CheckRange(chunk, at);
-        UnsafeRemoveAt(chunk, at);
+        RemoveAtUnchecked(chunk, at);
     }
 
-    public void UnsafeRemoveAt(int index) => UnsafeRemoveAt((uint)index);
-    public void UnsafeRemoveAt(uint index)
+    public void RemoveAtUnchecked(int index) => RemoveAtUnchecked((uint)index);
+    public void RemoveAtUnchecked(uint index)
     {
         var (chunk, at) = CalcIndex(index);
-        UnsafeRemoveAt(chunk, at);
+        RemoveAtUnchecked(chunk, at);
     }
 
-    public void UnsafeRemoveAt(int chunk, int at) => UnsafeRemoveAt((uint)chunk, (uint)at);
-    public void UnsafeRemoveAt(uint chunk, uint at)
+    public void RemoveAtUnchecked(int chunk, int at) => RemoveAtUnchecked((uint)chunk, (uint)at);
+    public void RemoveAtUnchecked(uint chunk, uint at)
     {
-        if (TBehavior.Value is Behavior.MoveItems) UnsafeRemoveAtMoveItems(chunk, at);
-        else UnsafeRemoveAtSwapToEnd(chunk, at);
+        if (TBehavior.Value is Behavior.MoveItems) RemoveAtMoveItemsUnchecked(chunk, at);
+        else RemoveAtSwapToEndUnchecked(chunk, at);
     }
 
-    private void UnsafeRemoveAtMoveItems(uint chunk, uint at)
+    private void RemoveAtMoveItemsUnchecked(uint chunk, uint at)
     {
         var old_at = --m_size_in_chunk;
         Debug.Assert(old_at >= 0);
@@ -345,7 +345,7 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
         }
     }
 
-    private void UnsafeRemoveAtSwapToEnd(uint chunk, uint at)
+    private void RemoveAtSwapToEndUnchecked(uint chunk, uint at)
     {
         var old_chunk = m_cur_chunk;
         var old_at = --m_size_in_chunk;
@@ -414,7 +414,7 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
 
     #region CopyTo
 
-    public void CopyTo(T[] array, int startIndex)
+    public readonly void CopyTo(T[] array, int startIndex)
     {
         for (var i = 0; i <= m_cur_chunk; i++)
         {
@@ -619,6 +619,148 @@ public struct SChunkedVector<T, TChunkSize, TBehavior>() : IList<T>, IReadOnlyLi
         public T Current => m_chunks.GetUnchecked(m_cur_chunk).GetUnchecked(m_index);
         object? IEnumerator.Current => Current;
         public void Dispose() { }
+    }
+
+    #endregion
+}
+
+public class ChunkedVector<T, TChunkSize, TBehavior> : IList<T>, IReadOnlyList<T>
+    where TChunkSize : struct, IConst<int>
+    where TBehavior : struct, IConst<Behavior>
+{
+    #region Fields
+
+    internal SChunkedVector<T, TChunkSize, TBehavior> m_inner = new();
+
+    #endregion
+
+    #region IsReadOnly
+
+    public bool IsReadOnly => m_inner.IsReadOnly;
+
+    #endregion
+
+    #region Count
+
+    public int Count => m_inner.Count;
+
+    public int ChunkCount => m_inner.ChunkCount;
+
+    #endregion
+
+    #region Capacity
+
+    public int Capacity => m_inner.Capacity;
+
+    #endregion
+
+    #region Get
+
+    T IList<T>.this[int index]
+    {
+        get => m_inner[index];
+        set => m_inner[index] = value;
+    }
+    T IReadOnlyList<T>.this[int index] => m_inner[index];
+
+    public ref T this[int index] => ref m_inner[index];
+
+    public ref T this[uint index] => ref m_inner[index];
+    public ref T this[int chunk, int at] => ref m_inner[chunk, at];
+
+    public ref T this[uint chunk, uint at] => ref m_inner[chunk, at];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref T GetUnchecked(int index) => ref m_inner.GetUnchecked(index);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref T GetUnchecked(uint index) => ref m_inner.GetUnchecked(index);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref T GetUnchecked(uint chunk, uint index) => ref m_inner.GetUnchecked(chunk, index);
+
+    #endregion
+
+    #region Add
+
+    public void Add(T item) => m_inner.Add(item);
+
+    public ref T UnsafeAdd() => ref m_inner.UnsafeAdd();
+
+    #endregion
+
+    #region Insert
+
+    public void Insert(int index, T value) => m_inner.Insert(index, value);
+    public void Insert(uint index, T value) => m_inner.Insert(index, value);
+
+    public ref T UnsafeInsert(int index) => ref m_inner.UnsafeInsert(index);
+    public ref T UnsafeInsert(uint index) => ref m_inner.UnsafeInsert(index);
+
+    public void InsertUnchecked(int index, T value) => m_inner.InsertUnchecked(index, value);
+    public void InsertUnchecked(uint index, T value) => m_inner.InsertUnchecked(index, value);
+
+    public ref T UnsafeInsertUnchecked(int index) => ref m_inner.UnsafeInsertUnchecked(index);
+    public ref T UnsafeInsertUnchecked(uint index) => ref m_inner.UnsafeInsertUnchecked(index);
+
+    public void InsertUnchecked(int chunk, int at, T value) => m_inner.InsertUnchecked(chunk, at, value);
+    public void InsertUnchecked(uint chunk, uint at, T value) => m_inner.InsertUnchecked(chunk, at, value);
+
+    public ref T UnsafeInsertUnchecked(int chunk, int at) => ref m_inner.UnsafeInsertUnchecked(chunk, at);
+    public ref T UnsafeInsertUnchecked(uint chunk, uint at) => ref m_inner.UnsafeInsertUnchecked(chunk, at);
+
+    #endregion
+
+    #region Remove
+
+    public bool Remove(T item) => m_inner.Remove(item);
+
+    public void RemoveAt(int index) => m_inner.RemoveAt(index);
+    public void RemoveAt(uint index) => m_inner.RemoveAt(index);
+
+    public void RemoveAt(int chunk, int at) => m_inner.RemoveAt(chunk, at);
+    public void RemoveAt(uint chunk, uint at) => m_inner.RemoveAt(chunk, at);
+
+    public void RemoveAtUnchecked(int index) => m_inner.RemoveAtUnchecked(index);
+    public void RemoveAtUnchecked(uint index) => m_inner.RemoveAtUnchecked(index);
+
+    public void RemoveAtUnchecked(int chunk, int at) => m_inner.RemoveAtUnchecked(chunk, at);
+    public void RemoveAtUnchecked(uint chunk, uint at) => m_inner.RemoveAtUnchecked(chunk, at);
+
+    #endregion
+
+    #region Find
+
+    public int IndexOf(T item) => m_inner.IndexOf(item);
+
+    public bool Contains(T item) => m_inner.Contains(item);
+
+    #endregion
+
+    #region Clear
+
+    public void Clear() => m_inner.Clear();
+
+    #endregion
+
+    #region CopyTo
+
+    public void CopyTo(T[] array, int startIndex) => m_inner.CopyTo(array, startIndex);
+
+    #endregion
+
+    #region Enumerator
+
+    public SChunkedVector<T, TChunkSize, TBehavior>.Enumerator GetEnumerator() => new(in m_inner);
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() =>
+        new SChunkedVector<T, TChunkSize, TBehavior>.EnumeratorClass(in m_inner);
+    IEnumerator IEnumerable.GetEnumerator() =>
+        new SChunkedVector<T, TChunkSize, TBehavior>.EnumeratorClass(in m_inner);
+
+    public SChunkedVector<T, TChunkSize, TBehavior>.ReverseEnumerable Reverse
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => new(m_inner);
     }
 
     #endregion
