@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -9,6 +10,9 @@ public interface IHashSearchCtrl<out R, C>
     where R : allows ref struct
     where C : allows ref struct
 {
+    /// <summary>
+    /// must be O(1)
+    /// </summary>
     uint Size { get; }
     /// <summary>
     /// must size += 1
@@ -18,6 +22,11 @@ public interface IHashSearchCtrl<out R, C>
     bool Eq(C ctx);
     ulong Hash(C ctx);
     R Get(C ctx);
+    R None();
+    /// <summary>
+    ///  Must swap to end
+    /// </summary>
+    R Remove(C last, uint index);
 }
 
 /// <summary>
@@ -26,6 +35,8 @@ public interface IHashSearchCtrl<out R, C>
 [StructLayout(LayoutKind.Auto)]
 public struct SHashSearcher
 {
+    #region Fields
+
     /// <summary>
     /// 2^(64-m_shift) number of buckets
     /// </summary>
@@ -60,10 +71,16 @@ public struct SHashSearcher
     private float m_max_load_factor = default_max_load_factor;
     private byte m_shifts = initial_shifts;
 
+    #endregion
+
+    #region Ctor
+
     public SHashSearcher()
     {
         CreateBucketFromShift();
     }
+
+    #endregion
 
     #region Misc
 
@@ -121,19 +138,16 @@ public struct SHashSearcher
         for (uint value_idx = 0, end_idx = search.Size; value_idx < end_idx; ++value_idx)
         {
             var ctx = search.At(value_idx);
-            var (dist_and_fingerprint, bucket) = NextWhileLess<S, R, C>(search, ctx);
+            var hash = search.Hash(ctx);
+            var (dist_and_fingerprint, bucket) = NextWhileLess(hash);
 
             // we know for certain that key has not yet been inserted, so no need to check it.
             PlaceAndShiftUp(new(dist_and_fingerprint, value_idx), bucket);
         }
     }
 
-    private (uint dist_and_fingerprint, uint bucket) NextWhileLess<S, R, C>(S search, C ctx)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
-        where R : allows ref struct
-        where C : allows ref struct
+    private (uint dist_and_fingerprint, uint bucket) NextWhileLess(ulong hash)
     {
-        var hash = search.Hash(ctx);
         var dist_and_fingerprint = DistAndFingerprintFromHash(hash);
         var bucket_index = GetBucketIndex(hash);
 
@@ -208,15 +222,162 @@ public struct SHashSearcher
     }
 
     #endregion
+
+    #region TryFind
+
+    public R UnsafeTryFind<S, R, C>(S search, ulong hash)
+        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where R : allows ref struct
+        where C : allows ref struct
+    {
+        if (search.Size == 0) return search.None();
+        var dist_and_fingerprint = DistAndFingerprintFromHash(hash);
+        var bucket_index = GetBucketIndex(hash);
+
+        ref var bucket = ref m_buckets.GetUnchecked(bucket_index);
+
+        // unrolled loop. *Always* check a few directly, then enter the loop. This is faster.
+
+        if (dist_and_fingerprint == bucket.m_dist_and_fingerprint)
+        {
+            var ctx = search.At(bucket.m_value_idx);
+            if (search.Eq(ctx))
+            {
+                return search.Get(ctx);
+            }
+        }
+        dist_and_fingerprint += Bucket.dist_inc;
+        bucket_index = NextBucketIndex(bucket_index);
+        bucket = ref m_buckets.GetUnchecked(bucket_index);
+
+        if (dist_and_fingerprint == bucket.m_dist_and_fingerprint)
+        {
+            var ctx = search.At(bucket.m_value_idx);
+            if (search.Eq(ctx))
+            {
+                return search.Get(ctx);
+            }
+        }
+        dist_and_fingerprint += Bucket.dist_inc;
+        bucket_index = NextBucketIndex(bucket_index);
+        bucket = ref m_buckets.GetUnchecked(bucket_index);
+
+        for (;;)
+        {
+            if (dist_and_fingerprint == bucket.m_dist_and_fingerprint)
+            {
+                var ctx = search.At(bucket.m_value_idx);
+                if (search.Eq(ctx))
+                {
+                    return search.Get(ctx);
+                }
+            }
+            else if (dist_and_fingerprint > bucket.m_dist_and_fingerprint)
+            {
+                return search.None();
+            }
+            dist_and_fingerprint += Bucket.dist_inc;
+            bucket_index = NextBucketIndex(bucket_index);
+            bucket = ref m_buckets.GetUnchecked(bucket_index);
+        }
+    }
+
+    #endregion
+
+    #region Remove
+
+    public R UnsafeRemove<S, R, C>(S search, ulong hash)
+        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where R : allows ref struct
+        where C : allows ref struct
+    {
+        if (search.Size == 0) return search.None();
+
+        var (dist_and_fingerprint, bucket_idx) = NextWhileLess(hash);
+
+        ref var bucket = ref m_buckets.GetUnchecked(bucket_idx);
+        re:
+        if (dist_and_fingerprint == bucket.m_dist_and_fingerprint)
+        {
+            var ctx = search.At(bucket.m_value_idx);
+            if (!search.Eq(ctx))
+            {
+                dist_and_fingerprint += Bucket.dist_inc;
+                bucket_idx = NextBucketIndex(bucket_idx);
+                goto re;
+            }
+        }
+
+        if (dist_and_fingerprint != bucket.m_dist_and_fingerprint) return search.None();
+
+        return DoRemove<S, R, C>(search, ref bucket, bucket_idx);
+    }
+
+    private R DoRemove<S, R, C>(S search, ref Bucket bucket, uint bucket_index)
+        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where R : allows ref struct
+        where C : allows ref struct
+    {
+        var value_idx_to_remove = bucket.m_value_idx;
+
+        // shift down until either empty or an element with correct spot is found
+        var next_bucket_index = NextBucketIndex(bucket_index);
+        re:
+        ref var next_bucket = ref m_buckets.GetUnchecked(next_bucket_index);
+        if (next_bucket.m_dist_and_fingerprint >= Bucket.dist_inc * 2)
+        {
+            bucket = new(next_bucket.m_dist_and_fingerprint - Bucket.dist_inc, next_bucket.m_value_idx);
+            bucket_index = next_bucket_index;
+            next_bucket_index = NextBucketIndex(next_bucket_index);
+            bucket = ref m_buckets.GetUnchecked(bucket_index);
+            goto re;
+        }
+        bucket = default;
+
+        // swap value to end
+        var last_idx = search.Size - 1;
+        var last = search.At(last_idx);
+        if (value_idx_to_remove != last_idx)
+        {
+            var hash = search.Hash(last);
+            bucket_index = GetBucketIndex(hash);
+
+            ref var target = ref m_buckets.GetUnchecked(bucket_index);
+            while (target.m_value_idx != last_idx)
+            {
+                bucket_index = NextBucketIndex(bucket_index);
+                target = ref m_buckets.GetUnchecked(bucket_index);
+            }
+            target.m_value_idx = value_idx_to_remove;
+        }
+
+        return search.Remove(last, value_idx_to_remove);
+    }
+
+    #endregion
+
+    #region Clear
+
+    public void Clear()
+    {
+        Array.Clear(m_buckets);
+    }
+
+    #endregion
 }
 
 [StructLayout(LayoutKind.Auto)]
-public struct SHashSet<T, HashWrapper>() where HashWrapper : IHashWrapper
+public struct SHashSet<T, HashWrapper>() : ISet<T>
+    where HashWrapper : IHashWrapper
 {
+    #region Fields
+
     internal SVector<T> m_items = new();
     internal SHashSearcher m_hash_searcher = new();
 
-    public int Count => m_items.Count;
+    #endregion
+
+    #region Ctrl
 
     internal readonly ref struct Ctrl(ref SHashSet<T, HashWrapper> self, ref T item)
         : IHashSearchCtrl<RefBox<T>, RefBox<T>>
@@ -254,9 +415,51 @@ public struct SHashSet<T, HashWrapper>() where HashWrapper : IHashWrapper
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public RefBox<T> Get(RefBox<T> ctx) => ctx;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public RefBox<T> None() => default;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe RefBox<T> Remove(RefBox<T> last, uint index)
+        {
+            ref var slot = ref self.m_items.GetUnchecked(index);
+            slot = last.Ref;
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>()) last.Ref = default!;
+            self.m_items.RemoveLastUncheckedSkipReset();
+            return new(ref Unsafe.AsRef<T>((void*)nuint.MaxValue));
+        }
     }
 
-    public bool TryInsert(T item)
+    #endregion
+
+    #region Count
+
+    public int Count => m_items.Count;
+
+    #endregion
+
+    #region IsReadOnly
+
+    public bool IsReadOnly => false;
+
+    #endregion
+
+    #region Contains
+
+    public bool Contains(T item)
+    {
+        var ctrl = new Ctrl(ref this, ref item);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<T>, RefBox<T>>(ctrl, hash);
+        return !r.IsNull;
+    }
+
+    #endregion
+
+    #region Add
+
+    void ICollection<T>.Add(T item) => TryAdd(item);
+    bool ISet<T>.Add(T item) => TryAdd(item);
+
+    public bool TryAdd(T item)
     {
         var ctrl = new Ctrl(ref this, ref item);
         var hash = ctrl.Hash();
@@ -264,17 +467,82 @@ public struct SHashSet<T, HashWrapper>() where HashWrapper : IHashWrapper
         return is_new;
     }
 
+    public ref T UnsafeTryAdd(T item, out bool is_new)
+    {
+        var ctrl = new Ctrl(ref this, ref item);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeTryEmplace<Ctrl, RefBox<T>, RefBox<T>>(ctrl, hash, out is_new);
+        return ref Unsafe.AsRef(in r.Ref); // https://github.com/dotnet/csharplang/discussions/8556
+    }
+
+    #endregion
+
+    #region Remove
+
+    public bool Remove(T item)
+    {
+        var ctrl = new Ctrl(ref this, ref item);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeRemove<Ctrl, RefBox<T>, RefBox<T>>(ctrl, hash);
+        return !r.IsNull;
+    }
+
+    #endregion
+
+    #region Clear
+
+    public void Clear()
+    {
+        m_hash_searcher.Clear();
+        m_items.Clear();
+    }
+
+    #endregion
+
+    #region CopyTo
+
+    public void CopyTo(T[] array, int arrayIndex) => m_items.CopyTo(array, arrayIndex);
+    public void CopyTo(Span<T> span) => m_items.CopyTo(span);
+
+    #endregion
+
+    #region Set Query
+
+    void ISet<T>.ExceptWith(IEnumerable<T> other) => throw new NotSupportedException();
+    void ISet<T>.SymmetricExceptWith(IEnumerable<T> other) => throw new NotSupportedException();
+    void ISet<T>.IntersectWith(IEnumerable<T> other) => throw new NotSupportedException();
+    bool ISet<T>.IsProperSubsetOf(IEnumerable<T> other) => throw new NotSupportedException();
+    bool ISet<T>.IsProperSupersetOf(IEnumerable<T> other) => throw new NotSupportedException();
+    bool ISet<T>.IsSubsetOf(IEnumerable<T> other) => throw new NotSupportedException();
+    bool ISet<T>.IsSupersetOf(IEnumerable<T> other) => throw new NotSupportedException();
+    bool ISet<T>.Overlaps(IEnumerable<T> other) => throw new NotSupportedException();
+    bool ISet<T>.SetEquals(IEnumerable<T> other) => throw new NotSupportedException();
+    void ISet<T>.UnionWith(IEnumerable<T> other) => throw new NotSupportedException();
+
+    #endregion
+
+    #region GetEnumerator
+
     public SVector<T>.Enumerator GetEnumerator() => m_items.GetEnumerator();
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => new SVector<T>.EnumeratorClass(in m_items);
+    IEnumerator IEnumerable.GetEnumerator() => new SVector<T>.EnumeratorClass(in m_items);
+
+    #endregion
 }
 
 [StructLayout(LayoutKind.Auto)]
-public struct SHashMap<TKey, TValue, HashWrapper>() where HashWrapper : IHashWrapper
+public struct SHashMap<TKey, TValue, HashWrapper>()
+    where HashWrapper : IHashWrapper
 {
+    #region Fields
+
     internal SVector<TKey> m_keys = new();
     internal SVector<TValue> m_values = new();
     internal SHashSearcher m_hash_searcher = new();
 
-    public int Count => m_keys.Count;
+    #endregion
+
+    #region Ctrl
 
     internal readonly ref struct Ctx(ref TKey key, ref TValue value)
     {
@@ -311,7 +579,71 @@ public struct SHashMap<TKey, TValue, HashWrapper>() where HashWrapper : IHashWra
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Hash() => Hash(key);
         public RefBox<TValue> Get(Ctx ctx) => new(ref ctx.value);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public RefBox<TValue> None() => default;
+        public RefBox<TValue> Remove(Ctx last, uint index) => throw new NotSupportedException();
     }
+
+    #endregion
+
+    #region Count
+
+    public int Count => m_keys.Count;
+
+    #endregion
+
+    #region Contains
+
+    public bool Contains(TKey key)
+    {
+        var ctrl = new Ctrl(ref this, ref key);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash);
+        return !r.IsNull;
+    }
+
+    #endregion
+
+    #region TryGetValue
+
+    public bool TryGetValue(TKey key, out RefBox<TValue> value)
+    {
+        var ctrl = new Ctrl(ref this, ref key);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash);
+        value = new(ref Unsafe.AsRef(in r.Ref)); // https://github.com/dotnet/csharplang/discussions/8556
+        return !r.IsNull;
+    }
+
+    public bool TryGetValue(TKey key, out TValue value)
+    {
+        if (TryGetValue(key, out RefBox<TValue> r))
+        {
+            value = r.Ref;
+            return true;
+        }
+        else
+        {
+            value = default!;
+            return false;
+        }
+    }
+
+    #endregion
+
+    #region UnsafeTryValue
+
+    public ref TValue UnsafeTryGetValue(TKey key)
+    {
+        var ctrl = new Ctrl(ref this, ref key);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash);
+        return ref Unsafe.AsRef(in r.Ref); // https://github.com/dotnet/csharplang/discussions/8556
+    }
+
+    #endregion
+
+    #region TryInsert
 
     public bool TryInsert(TKey key, TValue value)
     {
@@ -320,11 +652,44 @@ public struct SHashMap<TKey, TValue, HashWrapper>() where HashWrapper : IHashWra
         return is_new;
     }
 
+    #endregion
+
+    #region UnsafeTryEmplace
+
     public ref TValue UnsafeTryEmplace(TKey key, out bool is_new)
     {
         var ctrl = new Ctrl(ref this, ref key);
         var hash = ctrl.Hash();
         var r = m_hash_searcher.UnsafeTryEmplace<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash, out is_new);
-        return ref Unsafe.AsRef(in r.Ref);
+        return ref Unsafe.AsRef(in r.Ref); // https://github.com/dotnet/csharplang/discussions/8556
     }
+
+    #endregion
+
+    #region GetEnumerator
+
+    public Enumerator GetEnumerator() => new(this);
+
+    public struct Enumerator(scoped in SHashMap<TKey, TValue, HashWrapper> self)
+        : IEnumerator<KeyValuePair<TKey, TValue>>
+    {
+        private int m_index = -1;
+        private readonly int m_count = self.Count;
+        private readonly TKey[] m_keys = self.m_keys.UnsafeInternalArray;
+        private readonly TValue[] m_values = self.m_values.UnsafeInternalArray;
+
+        public void Reset() => m_index = -1;
+        public bool MoveNext()
+        {
+            var index = m_index + 1;
+            if (index >= m_count) return false;
+            m_index = index;
+            return true;
+        }
+        public KeyValuePair<TKey, TValue> Current => new(m_keys.GetUnchecked(m_index), m_values.GetUnchecked(m_index));
+        object IEnumerator.Current => Current;
+        public void Dispose() { }
+    }
+
+    #endregion
 }

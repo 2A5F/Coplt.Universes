@@ -332,6 +332,44 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
         }
     }
 
+    public void RemoveLast()
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(m_size, 1);
+        RemoveLastUnchecked();
+    }
+
+    public void RemoveLastUnchecked()
+    {
+        m_size--;
+        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+        {
+            GetUnchecked(m_size) = default!;
+        }
+    }
+    
+    public T RemoveAndGetLast()
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(m_size, 1);
+        return RemoveAndGetLastUnchecked();
+    }
+
+    public T RemoveAndGetLastUnchecked()
+    {
+        m_size--;
+        ref var slot = ref GetUnchecked(m_size);
+        var r = slot;
+        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+        {
+            slot = default!;
+        }
+        return r;
+    }
+
+    public void RemoveLastUncheckedSkipReset()
+    {
+        m_size--;
+    }
+
     #endregion
 
     #region CopyTo
@@ -374,7 +412,7 @@ public struct SVector<T> : IList<T>, IReadOnlyList<T>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_cur;
         }
-        readonly T IEnumerator<T>.Current 
+        readonly T IEnumerator<T>.Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => Current;
