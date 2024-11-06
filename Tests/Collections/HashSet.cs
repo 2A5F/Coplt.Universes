@@ -11,10 +11,10 @@ public class TestHashSet
         var set = new SHashSet<int, Hasher.Default>();
         for (int i = 0; i < 100; i++)
         {
-            Console.WriteLine(set.TryAdd(i));
+            Assert.That(set.TryAdd(i), Is.True);
         }
-        Console.WriteLine(set.TryAdd(1));
-        Console.WriteLine(set.Remove(1));
-        Console.WriteLine(set.Contains(1));
+        Assert.That(set.TryAdd(1), Is.False);
+        Assert.That(set.Remove(1), Is.True);
+        Assert.That(set.Contains(1), Is.False);
     }
 }

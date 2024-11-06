@@ -89,10 +89,10 @@ public struct SHashSearcher
         (uint)(Bucket.dist_inc | (hash & Bucket.fingerprint_mask));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private uint GetBucketIndex(ulong hash) => (uint)(hash >> m_shifts);
+    private readonly uint GetBucketIndex(ulong hash) => (uint)(hash >> m_shifts);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private uint NextBucketIndex(uint index)
+    private readonly uint NextBucketIndex(uint index)
     {
         var next = index + 1;
         return next >= m_num_buckets ? 0 : next;
@@ -225,7 +225,7 @@ public struct SHashSearcher
 
     #region TryFind
 
-    public R UnsafeTryFind<S, R, C>(S search, ulong hash)
+    public readonly R UnsafeTryFind<S, R, C>(S search, ulong hash)
         where S : IHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
@@ -432,21 +432,21 @@ public struct SHashSet<T, HashWrapper>() : ISet<T>
 
     #region Count
 
-    public int Count => m_items.Count;
+    public readonly int Count => m_items.Count;
 
     #endregion
 
     #region IsReadOnly
 
-    public bool IsReadOnly => false;
+    public readonly bool IsReadOnly => false;
 
     #endregion
 
     #region Contains
 
-    public bool Contains(T item)
+    public readonly bool Contains(T item)
     {
-        var ctrl = new Ctrl(ref this, ref item);
+        var ctrl = new Ctrl(ref Unsafe.AsRef(in this), ref item);
         var hash = ctrl.Hash();
         var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<T>, RefBox<T>>(ctrl, hash);
         return !r.IsNull;
@@ -501,8 +501,8 @@ public struct SHashSet<T, HashWrapper>() : ISet<T>
 
     #region CopyTo
 
-    public void CopyTo(T[] array, int arrayIndex) => m_items.CopyTo(array, arrayIndex);
-    public void CopyTo(Span<T> span) => m_items.CopyTo(span);
+    public readonly void CopyTo(T[] array, int arrayIndex) => m_items.CopyTo(array, arrayIndex);
+    public readonly void CopyTo(Span<T> span) => m_items.CopyTo(span);
 
     #endregion
 
@@ -523,15 +523,15 @@ public struct SHashSet<T, HashWrapper>() : ISet<T>
 
     #region GetEnumerator
 
-    public SVector<T>.Enumerator GetEnumerator() => m_items.GetEnumerator();
-    IEnumerator<T> IEnumerable<T>.GetEnumerator() => new SVector<T>.EnumeratorClass(in m_items);
-    IEnumerator IEnumerable.GetEnumerator() => new SVector<T>.EnumeratorClass(in m_items);
+    public readonly SVector<T>.Enumerator GetEnumerator() => m_items.GetEnumerator();
+    readonly IEnumerator<T> IEnumerable<T>.GetEnumerator() => new SVector<T>.EnumeratorClass(in m_items);
+    readonly IEnumerator IEnumerable.GetEnumerator() => new SVector<T>.EnumeratorClass(in m_items);
 
     #endregion
 }
 
 [StructLayout(LayoutKind.Auto)]
-public struct SHashMap<TKey, TValue, HashWrapper>()
+public struct SHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
     where HashWrapper : IHashWrapper
 {
     #region Fields
@@ -581,43 +581,119 @@ public struct SHashMap<TKey, TValue, HashWrapper>()
         public RefBox<TValue> Get(Ctx ctx) => new(ref ctx.value);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public RefBox<TValue> None() => default;
-        public RefBox<TValue> Remove(Ctx last, uint index) => throw new NotSupportedException();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe RefBox<TValue> Remove(Ctx last, uint index)
+        {
+            var ctx = At(index);
+            ctx.key = last.key;
+            ctx.value = last.value;
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<TKey>()) last.key = default!;
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<TValue>()) last.value = default!;
+            self.m_keys.RemoveLastUncheckedSkipReset();
+            self.m_values.RemoveLastUncheckedSkipReset();
+            return new(ref Unsafe.AsRef<TValue>((void*)nuint.MaxValue));
+        }
+    }
+
+    internal readonly ref struct CtrlRemoveGetValue(
+        ref SHashMap<TKey, TValue, HashWrapper> self,
+        ref TKey key,
+        ref TValue value
+    )
+        : IHashSearchCtrl<RefBox<TValue>, Ctx>
+    {
+        private readonly ref SHashMap<TKey, TValue, HashWrapper> self = ref self;
+        private readonly ref TKey key = ref key;
+        private readonly ref TValue value = ref value;
+        public uint Size
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (uint)self.Count;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Ctx Add() => throw new NotSupportedException();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Ctx At(uint index) => new(ref self.m_keys.GetUnchecked(index), ref self.m_values.GetUnchecked(index));
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Eq(Ctx ctx) => EqualityComparer<TKey>.Default.Equals(key, ctx.key);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong Hash(Ctx ctx) => Hash(ctx.key);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong Hash(TKey item) => HashWrapper.Hash(EqualityComparer<TKey>.Default.GetHashCode(item!));
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong Hash() => Hash(key);
+        public RefBox<TValue> Get(Ctx ctx) => new(ref ctx.value);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public RefBox<TValue> None() => default;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public RefBox<TValue> Remove(Ctx last, uint index)
+        {
+            var ctx = At(index);
+            value = ctx.value;
+            ctx.key = last.key;
+            ctx.value = last.value;
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<TKey>()) last.key = default!;
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<TValue>()) last.value = default!;
+            self.m_keys.RemoveLastUncheckedSkipReset();
+            self.m_values.RemoveLastUncheckedSkipReset();
+            return new(ref value);
+        }
     }
 
     #endregion
 
     #region Count
 
-    public int Count => m_keys.Count;
+    public readonly int Count => m_keys.Count;
+
+    #endregion
+
+    #region IsReadOnly
+
+    public readonly bool IsReadOnly => false;
 
     #endregion
 
     #region Contains
 
-    public bool Contains(TKey key)
+    public readonly bool ContainsKey(TKey key)
     {
-        var ctrl = new Ctrl(ref this, ref key);
+        var ctrl = new Ctrl(ref Unsafe.AsRef(in this), ref key);
         var hash = ctrl.Hash();
         var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash);
         return !r.IsNull;
     }
 
+    readonly bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item) =>
+        TryGetValue(item.Key, out var value) && EqualityComparer<TValue>.Default.Equals(value, item.Value);
+
     #endregion
 
-    #region TryGetValue
+    #region Index
 
-    public bool TryGetValue(TKey key, out RefBox<TValue> value)
+    public TValue this[TKey key]
     {
-        var ctrl = new Ctrl(ref this, ref key);
+        readonly get => TryGetValue(key, out var v) ? v : throw new KeyNotFoundException();
+        set => AddOrReplace(key, value);
+    }
+
+    #endregion
+
+    #region Get
+
+    public readonly bool TryGetValueRef(TKey key, out RefBox<TValue> value)
+    {
+        var ctrl = new Ctrl(ref Unsafe.AsRef(in this), ref key);
         var hash = ctrl.Hash();
         var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash);
         value = new(ref Unsafe.AsRef(in r.Ref)); // https://github.com/dotnet/csharplang/discussions/8556
         return !r.IsNull;
     }
 
-    public bool TryGetValue(TKey key, out TValue value)
+    public readonly bool TryGetValue(TKey key, out TValue value)
     {
-        if (TryGetValue(key, out RefBox<TValue> r))
+        if (TryGetValueRef(key, out RefBox<TValue> r))
         {
             value = r.Ref;
             return true;
@@ -629,13 +705,9 @@ public struct SHashMap<TKey, TValue, HashWrapper>()
         }
     }
 
-    #endregion
-
-    #region UnsafeTryValue
-
-    public ref TValue UnsafeTryGetValue(TKey key)
+    public readonly ref TValue UnsafeTryGetValue(TKey key)
     {
-        var ctrl = new Ctrl(ref this, ref key);
+        var ctrl = new Ctrl(ref Unsafe.AsRef(in this), ref key);
         var hash = ctrl.Hash();
         var r = m_hash_searcher.UnsafeTryFind<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash);
         return ref Unsafe.AsRef(in r.Ref); // https://github.com/dotnet/csharplang/discussions/8556
@@ -643,18 +715,25 @@ public struct SHashMap<TKey, TValue, HashWrapper>()
 
     #endregion
 
-    #region TryInsert
+    #region Add
 
-    public bool TryInsert(TKey key, TValue value)
+    public bool TryAdd(TKey key, TValue value)
     {
         ref var slot = ref UnsafeTryEmplace(key, out var is_new);
         if (is_new) slot = value;
         return is_new;
     }
 
-    #endregion
+    /// <returns>ture if add, false if replace</returns>
+    public bool AddOrReplace(TKey key, TValue value)
+    {
+        ref var slot = ref UnsafeTryEmplace(key, out var is_new);
+        slot = value;
+        return is_new;
+    }
 
-    #region UnsafeTryEmplace
+    void IDictionary<TKey, TValue>.Add(TKey key, TValue value) => TryAdd(key, value);
+    void ICollection<KeyValuePair<TKey, TValue>>.Add(KeyValuePair<TKey, TValue> item) => TryAdd(item.Key, item.Value);
 
     public ref TValue UnsafeTryEmplace(TKey key, out bool is_new)
     {
@@ -666,9 +745,61 @@ public struct SHashMap<TKey, TValue, HashWrapper>()
 
     #endregion
 
+    #region Remove
+
+    public bool Remove(TKey key)
+    {
+        var ctrl = new Ctrl(ref this, ref key);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeRemove<Ctrl, RefBox<TValue>, Ctx>(ctrl, hash);
+        return !r.IsNull;
+    }
+
+    public bool TryRemove(TKey key, out TValue value)
+    {
+        Unsafe.SkipInit(out value);
+        var ctrl = new CtrlRemoveGetValue(ref this, ref key, ref value);
+        var hash = ctrl.Hash();
+        var r = m_hash_searcher.UnsafeRemove<CtrlRemoveGetValue, RefBox<TValue>, Ctx>(ctrl, hash);
+        return !r.IsNull;
+    }
+
+    bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> item) => Remove(item.Key);
+
+    #endregion
+
+    #region Clear
+
+    public void Clear()
+    {
+        m_hash_searcher.Clear();
+        m_keys.Clear();
+        m_values.Clear();
+    }
+
+    #endregion
+
+    #region CopyTo
+
+    readonly void ICollection<KeyValuePair<TKey, TValue>>.CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
+    {
+        if (arrayIndex >= array.Length) return;
+        foreach (var kv in this)
+        {
+            array[arrayIndex] = kv;
+            arrayIndex++;
+            if (arrayIndex >= array.Length) return;
+        }
+    }
+
+    #endregion
+
     #region GetEnumerator
 
-    public Enumerator GetEnumerator() => new(this);
+    public readonly Enumerator GetEnumerator() => new(this);
+    readonly IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() =>
+        GetEnumerator();
+    readonly IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     public struct Enumerator(scoped in SHashMap<TKey, TValue, HashWrapper> self)
         : IEnumerator<KeyValuePair<TKey, TValue>>
@@ -690,6 +821,63 @@ public struct SHashMap<TKey, TValue, HashWrapper>()
         object IEnumerator.Current => Current;
         public void Dispose() { }
     }
+
+    #endregion
+
+    #region Views
+
+    [UnscopedRef]
+    public readonly KeyView Keys => new(this);
+    [UnscopedRef]
+    public readonly ValueView Values => new(this);
+
+    public readonly struct KeyView(SHashMap<TKey, TValue, HashWrapper> self) : ICollection<TKey>
+    {
+        public int Count => self.Count;
+
+        public bool IsReadOnly => true;
+        public Span<TKey> Span => self.m_keys.Span;
+        public bool Contains(TKey item) => self.ContainsKey(item);
+
+        public SVector<TKey>.Enumerator GetEnumerator() => new(in self.m_keys);
+
+        IEnumerator<TKey> IEnumerable<TKey>.GetEnumerator() =>
+            new SVector<TKey>.EnumeratorClass(in self.m_keys);
+        IEnumerator IEnumerable.GetEnumerator() => new SVector<TKey>.EnumeratorClass(in self.m_keys);
+
+        void ICollection<TKey>.Add(TKey item) => throw new NotSupportedException();
+        void ICollection<TKey>.Clear() => throw new NotSupportedException();
+        bool ICollection<TKey>.Remove(TKey item) => throw new NotSupportedException();
+
+        public void CopyTo(TKey[] array, int arrayIndex) => self.m_keys.CopyTo(array, arrayIndex);
+        public void CopyTo(Span<TKey> span) => self.m_keys.CopyTo(span);
+    }
+
+    public readonly struct ValueView(SHashMap<TKey, TValue, HashWrapper> self) : ICollection<TValue>
+    {
+        public int Count => self.Count;
+
+        public bool IsReadOnly => true;
+
+        public Span<TValue> Span => self.m_values.Span;
+        bool ICollection<TValue>.Contains(TValue item) => self.m_values.Contains(item);
+
+        public SVector<TValue>.Enumerator GetEnumerator() => new(in self.m_values);
+
+        IEnumerator<TValue> IEnumerable<TValue>.GetEnumerator() =>
+            new SVector<TValue>.EnumeratorClass(in self.m_values);
+        IEnumerator IEnumerable.GetEnumerator() => new SVector<TValue>.EnumeratorClass(in self.m_values);
+
+        void ICollection<TValue>.Add(TValue item) => throw new NotSupportedException();
+        void ICollection<TValue>.Clear() => throw new NotSupportedException();
+        bool ICollection<TValue>.Remove(TValue item) => throw new NotSupportedException();
+
+        public void CopyTo(TValue[] array, int arrayIndex) => self.m_values.CopyTo(array, arrayIndex);
+        public void CopyTo(Span<TValue> span) => self.m_values.CopyTo(span);
+    }
+
+    ICollection<TKey> IDictionary<TKey, TValue>.Keys => throw new NotSupportedException();
+    ICollection<TValue> IDictionary<TKey, TValue>.Values => throw new NotSupportedException();
 
     #endregion
 }

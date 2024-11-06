@@ -8,11 +8,13 @@ public class TestHashMap
     [Test]
     public void Test1()
     {
-        var set = new SHashMap<int, string, Hasher.Default>();
+        var map = new SHashMap<int, string, Hasher.Default>();
         for (int i = 0; i < 100; i++)
         {
-            Console.WriteLine(set.TryInsert(i, $"{i}"));
+            Assert.That(map.TryAdd(i, $"{i}"), Is.True);
         }
-        Console.WriteLine(set.TryInsert(1, "123"));
+        Assert.That(map.TryAdd(1, "123"), Is.False);
+        Assert.That(map.Remove(1), Is.True);
+        Assert.That(map.ContainsKey(1), Is.False);
     }
 }
