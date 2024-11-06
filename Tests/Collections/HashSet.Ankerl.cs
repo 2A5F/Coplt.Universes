@@ -3,12 +3,12 @@ using Coplt.Universes.Collections;
 namespace Tests.Collections;
 
 [Parallelizable]
-public class TestHashSet
+public class Test_HashSet_Ankerl
 {
     [Test]
     public void Test1()
     {
-        var set = new SHashSet<int, Hasher.Default>();
+        var set = new SAnkerlHashSet<int, Hasher.Default>();
         for (int i = 0; i < 100; i++)
         {
             Assert.That(set.TryAdd(i), Is.True);

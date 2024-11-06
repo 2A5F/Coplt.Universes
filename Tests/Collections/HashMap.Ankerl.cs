@@ -3,12 +3,12 @@ using Coplt.Universes.Collections;
 namespace Tests.Collections;
 
 [Parallelizable]
-public class TestHashMap
+public class Test_HashMap_Ankerl
 {
     [Test]
     public void Test1()
     {
-        var map = new SHashMap<int, string, Hasher.Default>();
+        var map = new SAnkerlHashMap<int, string, Hasher.Default>();
         for (int i = 0; i < 100; i++)
         {
             Assert.That(map.TryAdd(i, $"{i}"), Is.True);

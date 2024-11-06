@@ -6,7 +6,10 @@ using Coplt.Universes.Utilities;
 
 namespace Coplt.Universes.Collections;
 
-public interface IHashSearchCtrl<out R, C>
+// https://github.com/martinus/unordered_dense
+// https://github.com/martinus/unordered_dense/tree/f30ed41b58af8c79788e8581fe57a6faf856258e
+
+public interface IAnkerlHashSearchCtrl<out R, C>
     where R : allows ref struct
     where C : allows ref struct
 {
@@ -29,11 +32,8 @@ public interface IHashSearchCtrl<out R, C>
     R Remove(C last, uint index);
 }
 
-/// <summary>
-/// https://github.com/martinus/unordered_dense
-/// </summary>
 [StructLayout(LayoutKind.Auto)]
-public struct SHashSearcher
+public struct SAnkerlHashSearcher
 {
     #region Fields
 
@@ -68,14 +68,14 @@ public struct SHashSearcher
     private Bucket[] m_buckets = [];
     private uint m_num_buckets;
     private uint m_max_bucket_capacity;
-    private float m_max_load_factor = default_max_load_factor;
+    private readonly float m_max_load_factor = default_max_load_factor;
     private byte m_shifts = initial_shifts;
 
     #endregion
 
     #region Ctor
 
-    public SHashSearcher()
+    public SAnkerlHashSearcher()
     {
         CreateBucketFromShift();
     }
@@ -116,7 +116,7 @@ public struct SHashSearcher
     }
 
     private void Grow<S, R, C>(S search)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where S : IAnkerlHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
     {
@@ -131,7 +131,7 @@ public struct SHashSearcher
     #region CalcBucket
 
     private void ReCalcBuckets<S, R, C>(S search)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where S : IAnkerlHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
     {
@@ -177,7 +177,7 @@ public struct SHashSearcher
     #region TryEmplace
 
     public R UnsafeTryEmplace<S, R, C>(S search, ulong hash, out bool is_new)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where S : IAnkerlHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
     {
@@ -206,7 +206,7 @@ public struct SHashSearcher
     }
 
     private R UnsafePlaceAt<S, R, C>(S search, uint dist_and_fingerprint, uint bucket_idx, out bool is_new)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where S : IAnkerlHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
     {
@@ -226,7 +226,7 @@ public struct SHashSearcher
     #region TryFind
 
     public readonly R UnsafeTryFind<S, R, C>(S search, ulong hash)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where S : IAnkerlHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
     {
@@ -287,7 +287,7 @@ public struct SHashSearcher
     #region Remove
 
     public R UnsafeRemove<S, R, C>(S search, ulong hash)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where S : IAnkerlHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
     {
@@ -314,7 +314,7 @@ public struct SHashSearcher
     }
 
     private R DoRemove<S, R, C>(S search, ref Bucket bucket, uint bucket_index)
-        where S : IHashSearchCtrl<R, C>, allows ref struct
+        where S : IAnkerlHashSearchCtrl<R, C>, allows ref struct
         where R : allows ref struct
         where C : allows ref struct
     {
@@ -366,23 +366,26 @@ public struct SHashSearcher
     #endregion
 }
 
+/// <summary>
+/// A hash set using Ankerl's algorithm, slow insertion, random query is comparable to dictionary, and sequential traversal is extremely fast
+/// </summary>
 [StructLayout(LayoutKind.Auto)]
-public struct SHashSet<T, HashWrapper>() : ISet<T>
+public struct SAnkerlHashSet<T, HashWrapper>() : ISet<T>
     where HashWrapper : IHashWrapper
 {
     #region Fields
 
     internal SVector<T> m_items = new();
-    internal SHashSearcher m_hash_searcher = new();
+    internal SAnkerlHashSearcher m_hash_searcher = new();
 
     #endregion
 
     #region Ctrl
 
-    internal readonly ref struct Ctrl(ref SHashSet<T, HashWrapper> self, ref T item)
-        : IHashSearchCtrl<RefBox<T>, RefBox<T>>
+    internal readonly ref struct Ctrl(ref SAnkerlHashSet<T, HashWrapper> self, ref T item)
+        : IAnkerlHashSearchCtrl<RefBox<T>, RefBox<T>>
     {
-        private readonly ref SHashSet<T, HashWrapper> self = ref self;
+        private readonly ref SAnkerlHashSet<T, HashWrapper> self = ref self;
         private readonly ref T item = ref item;
         public uint Size
         {
@@ -530,15 +533,18 @@ public struct SHashSet<T, HashWrapper>() : ISet<T>
     #endregion
 }
 
+/// <summary>
+/// A hash map using Ankerl's algorithm, slow insertion, random query is comparable to dictionary, and sequential traversal is extremely fast
+/// </summary>
 [StructLayout(LayoutKind.Auto)]
-public struct SHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
+public struct SAnkerlHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
     where HashWrapper : IHashWrapper
 {
     #region Fields
 
     internal SVector<TKey> m_keys = new();
     internal SVector<TValue> m_values = new();
-    internal SHashSearcher m_hash_searcher = new();
+    internal SAnkerlHashSearcher m_hash_searcher = new();
 
     #endregion
 
@@ -550,10 +556,10 @@ public struct SHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
         public readonly ref TValue value = ref value;
     }
 
-    internal readonly ref struct Ctrl(ref SHashMap<TKey, TValue, HashWrapper> self, ref TKey key)
-        : IHashSearchCtrl<RefBox<TValue>, Ctx>
+    internal readonly ref struct Ctrl(ref SAnkerlHashMap<TKey, TValue, HashWrapper> self, ref TKey key)
+        : IAnkerlHashSearchCtrl<RefBox<TValue>, Ctx>
     {
-        private readonly ref SHashMap<TKey, TValue, HashWrapper> self = ref self;
+        private readonly ref SAnkerlHashMap<TKey, TValue, HashWrapper> self = ref self;
         private readonly ref TKey key = ref key;
         public uint Size
         {
@@ -596,13 +602,13 @@ public struct SHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
     }
 
     internal readonly ref struct CtrlRemoveGetValue(
-        ref SHashMap<TKey, TValue, HashWrapper> self,
+        ref SAnkerlHashMap<TKey, TValue, HashWrapper> self,
         ref TKey key,
         ref TValue value
     )
-        : IHashSearchCtrl<RefBox<TValue>, Ctx>
+        : IAnkerlHashSearchCtrl<RefBox<TValue>, Ctx>
     {
-        private readonly ref SHashMap<TKey, TValue, HashWrapper> self = ref self;
+        private readonly ref SAnkerlHashMap<TKey, TValue, HashWrapper> self = ref self;
         private readonly ref TKey key = ref key;
         private readonly ref TValue value = ref value;
         public uint Size
@@ -801,7 +807,7 @@ public struct SHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
         GetEnumerator();
     readonly IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public struct Enumerator(scoped in SHashMap<TKey, TValue, HashWrapper> self)
+    public struct Enumerator(scoped in SAnkerlHashMap<TKey, TValue, HashWrapper> self)
         : IEnumerator<KeyValuePair<TKey, TValue>>
     {
         private int m_index = -1;
@@ -831,7 +837,7 @@ public struct SHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
     [UnscopedRef]
     public readonly ValueView Values => new(this);
 
-    public readonly struct KeyView(SHashMap<TKey, TValue, HashWrapper> self) : ICollection<TKey>
+    public readonly struct KeyView(SAnkerlHashMap<TKey, TValue, HashWrapper> self) : ICollection<TKey>
     {
         public int Count => self.Count;
 
@@ -853,7 +859,7 @@ public struct SHashMap<TKey, TValue, HashWrapper>() : IDictionary<TKey, TValue>
         public void CopyTo(Span<TKey> span) => self.m_keys.CopyTo(span);
     }
 
-    public readonly struct ValueView(SHashMap<TKey, TValue, HashWrapper> self) : ICollection<TValue>
+    public readonly struct ValueView(SAnkerlHashMap<TKey, TValue, HashWrapper> self) : ICollection<TValue>
     {
         public int Count => self.Count;
 

@@ -23,9 +23,9 @@ public class HashMap_TryAdd
     }
 
     [Benchmark]
-    public SHashMap<int, int, Hasher.Default> Ankerl()
+    public SAnkerlHashMap<int, int, Hasher.Default> Ankerl()
     {
-        var map = new SHashMap<int, int, Hasher.Default>();
+        var map = new SAnkerlHashMap<int, int, Hasher.Default>();
         foreach (var item in data.AsSpan(0, Size))
         {
             map.TryAdd(item, item);

@@ -11,7 +11,7 @@ namespace Benchmark;
 public class HashMap_ForEach
 {
     private int[] data;
-    private SHashMap<int, int, Hasher.Default>[] ankerls;
+    private SAnkerlHashMap<int, int, Hasher.Default>[] ankerls;
     private Dictionary<int, int>[] dictionaries;
     private static int[] Sizes = [10, 100, 1000, 10000];
 
@@ -33,7 +33,7 @@ public class HashMap_ForEach
         data = new int[10000];
         RandomNumberGenerator.Fill(MemoryMarshal.AsBytes(data.AsSpan()));
 
-        ankerls = new SHashMap<int, int, Hasher.Default>[4];
+        ankerls = new SAnkerlHashMap<int, int, Hasher.Default>[4];
         for (int i = 0; i < 4; i++)
         {
             ankerls[i] = new();
