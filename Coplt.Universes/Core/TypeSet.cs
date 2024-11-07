@@ -138,8 +138,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     private static class IsOverlapValue<TA, TB>
     {
-        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>())
-            .Overlaps(SetOf<TB>().Remove(TypeMeta.Of<Entity>()));
+        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>()).Remove(TypeMeta.Of<EntityState>())
+            .Overlaps(SetOf<TB>().Remove(TypeMeta.Of<Entity>()).Remove(TypeMeta.Of<EntityState>()));
     }
 
     #endregion
@@ -152,8 +152,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     private static class IsSubsetOfValue<TA, TB>
     {
-        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>())
-            .IsSubsetOf(SetOf<TB>().Remove(TypeMeta.Of<Entity>()));
+        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>()).Remove(TypeMeta.Of<EntityState>())
+            .IsSubsetOf(SetOf<TB>().Remove(TypeMeta.Of<Entity>()).Remove(TypeMeta.Of<EntityState>()));
     }
 
     #endregion
@@ -166,8 +166,8 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
 
     private static class IsSupersetOfValue<TA, TB>
     {
-        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>())
-            .IsSupersetOf(SetOf<TB>().Remove(TypeMeta.Of<Entity>()));
+        public static readonly bool Value = SetOf<TA>().Remove(TypeMeta.Of<Entity>()).Remove(TypeMeta.Of<EntityState>())
+            .IsSupersetOf(SetOf<TB>().Remove(TypeMeta.Of<Entity>()).Remove(TypeMeta.Of<EntityState>()));
     }
 
     #endregion
@@ -188,7 +188,7 @@ public abstract partial class TypeSet : IEnumerable<TypeMeta>, IEquatable<TypeSe
         public static SortedSet Create(ImmutableHashSet<TypeMeta> RawSet)
         {
             var set = RawSet;
-            set = set.Add(TypeMeta.Of<Entity>());
+            set = set.Add(TypeMeta.Of<Entity>()).Add(TypeMeta.Of<EntityState>());
             return new(SortType(set), set);
         }
         private SortedSet(List<TypeMeta> types, ImmutableHashSet<TypeMeta> rawSet)
