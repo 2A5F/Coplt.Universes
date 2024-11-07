@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 using Coplt.Universes.Collections;
+using WyHash;
 
 namespace Benchmark;
 
@@ -19,17 +20,6 @@ public class Hasher_Alg
         RandomNumberGenerator.Fill(MemoryMarshal.AsBytes(data.AsSpan()));
     }
 
-    [Benchmark]
-    public ulong Aes()
-    {
-        var hasher = AesHasher.Init;
-        foreach (var item in data)
-        {
-            hasher.Write(item);
-        }
-        return hasher.Finish()[0];
-    }
-
     [Benchmark(Baseline = true)]
     public int System_HashCode()
     {
@@ -39,5 +29,49 @@ public class Hasher_Alg
             hasher.Add(item);
         }
         return hasher.ToHashCode();
+    }
+
+    [Benchmark]
+    public int System_HashCode_Batch()
+    {
+        var hasher = new HashCode();
+        hasher.AddBytes(MemoryMarshal.AsBytes(data.AsSpan()));
+        return hasher.ToHashCode();
+    }
+
+    [Benchmark]
+    public ulong AHash_Aes()
+    {
+        var hasher = AesHasher.Init;
+        foreach (var item in data)
+        {
+            hasher.Write(item);
+        }
+        return hasher.Finish();
+    }
+
+    [Benchmark]
+    public ulong Rapid()
+    {
+        var hasher = RapidHasher.Init;
+        foreach (var item in data)
+        {
+            hasher.Write(item);
+        }
+        return hasher.Finish();
+    }
+
+    [Benchmark]
+    public ulong Rapid_Batch()
+    {
+        var hasher = RapidHasher.Init;
+        hasher.Write(MemoryMarshal.AsBytes(data.AsSpan()));
+        return hasher.Finish();
+    }
+
+    [Benchmark]
+    public ulong WyHash_Batch()
+    {
+        return WyHash64.ComputeHash64(MemoryMarshal.AsBytes(data.AsSpan()));
     }
 }

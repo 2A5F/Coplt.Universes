@@ -11,9 +11,9 @@ public struct AesHasher
 {
     #region Feilds
 
-    public Vector128<byte> enc;
-    public Vector128<byte> sum;
-    public Vector128<byte> key;
+    internal Vector128<byte> enc;
+    internal Vector128<byte> sum;
+    internal Vector128<byte> key;
 
     #endregion
 
@@ -135,10 +135,10 @@ public struct AesHasher
 
     #region Finish
 
-    public Vector128<byte> Finish()
+    public ulong Finish()
     {
         var combined = AesEnc(sum, enc);
-        return AesDec(AesDec(combined, key), combined);
+        return AesDec(AesDec(combined, key), combined).AsUInt64()[0];
     }
 
     #endregion
@@ -149,7 +149,7 @@ public struct AesHasher
     {
         var hasher = Init;
         hasher.Write(hash);
-        return hasher.Finish().AsUInt64()[0];
+        return hasher.Finish();
     }
 
     #endregion

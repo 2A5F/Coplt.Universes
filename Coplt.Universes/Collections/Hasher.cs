@@ -9,17 +9,17 @@ public static class Hasher
 {
     public struct Default : IHashWrapper
     {
-        public static ulong Hash(int hash)
-        {
-            if (AesHasher.IsSupported) return AesHasher.Hash(hash);
-            throw new NotSupportedException("Non x86 and arm architecture CPUs are not yet supported");
-            // todo write fallback
-        }
+        public static ulong Hash(int hash) => Aes.Hash(hash);
     }
 
     public struct AsIs : IHashWrapper
     {
         public static ulong Hash(int hash) => (ulong)hash;
+    }
+
+    public struct Rapid : IHashWrapper
+    {
+        public static ulong Hash(int hash) => RapidHasher.Hash(hash);
     }
 
     public struct Aes : IHashWrapper
