@@ -1,6 +1,6 @@
 namespace Coplt.Universes.Collections;
 
-public interface IHashSearcher<out Self>
+public interface IDenseHashSearcher<out Self>
 {
     public static abstract Self Create();
 

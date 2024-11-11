@@ -23,9 +23,9 @@ public class HashMap_TryAdd
     }
 
     [Benchmark]
-    public SHashMap<int, int, AnkerlHashSearcher, Hasher.Default> Ankerl()
+    public SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default> Ankerl()
     {
-        var map = new SHashMap<int, int, AnkerlHashSearcher, Hasher.Default>();
+        var map = new SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default>();
         foreach (var item in data.AsSpan(0, Size))
         {
             map.TryAdd(item, item);
@@ -34,9 +34,9 @@ public class HashMap_TryAdd
     }
 
     [Benchmark]
-    public SHashMap<int, int, SystemHashSearcher, Hasher.Default> System()
+    public SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default> SystemAlg()
     {
-        var map = new SHashMap<int, int, SystemHashSearcher, Hasher.Default>();
+        var map = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>();
         foreach (var item in data.AsSpan(0, Size))
         {
             map.TryAdd(item, item);

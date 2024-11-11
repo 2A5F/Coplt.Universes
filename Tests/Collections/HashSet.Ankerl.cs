@@ -8,7 +8,7 @@ public class Test_HashSet_Ankerl
     [Test]
     public void Test1()
     {
-        var set = new SHashSet<int, AnkerlHashSearcher, Hasher.Default>();
+        var set = new SDenseHashSet<int, DenseHashSearcher.Ankerl, Hasher.Default>();
         for (int i = 0; i < 100; i++)
         {
             Assert.That(set.TryAdd(i), Is.True);

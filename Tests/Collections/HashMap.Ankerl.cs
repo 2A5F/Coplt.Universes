@@ -8,7 +8,7 @@ public class Test_HashMap_Ankerl
     [Test]
     public void Test1()
     {
-        var map = new SHashMap<int, string, AnkerlHashSearcher, Hasher.Default>();
+        var map = new SDenseHashMap<int, string, DenseHashSearcher.Ankerl, Hasher.Default>();
         for (int i = 0; i < 100; i++)
         {
             Assert.That(map.TryAdd(i, $"{i}"), Is.True);

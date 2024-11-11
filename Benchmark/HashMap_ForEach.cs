@@ -11,8 +11,8 @@ namespace Benchmark;
 public class HashMap_ForEach
 {
     private int[] data;
-    private SHashMap<int, int, AnkerlHashSearcher, Hasher.Default>[] ankerls;
-    private SHashMap<int, int, SystemHashSearcher, Hasher.Default>[] systems;
+    private SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default>[] ankerls;
+    private SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>[] systems;
     private Dictionary<int, int>[] dictionaries;
     private static int[] Sizes = [10, 100, 1000, 10000];
 
@@ -34,7 +34,7 @@ public class HashMap_ForEach
         data = new int[10000];
         RandomNumberGenerator.Fill(MemoryMarshal.AsBytes(data.AsSpan()));
 
-        ankerls = new SHashMap<int, int, AnkerlHashSearcher, Hasher.Default>[4];
+        ankerls = new SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default>[4];
         for (int i = 0; i < 4; i++)
         {
             ankerls[i] = new();
@@ -44,7 +44,7 @@ public class HashMap_ForEach
             }
         }
 
-        systems = new SHashMap<int, int, SystemHashSearcher, Hasher.Default>[4];
+        systems = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>[4];
         for (int i = 0; i < 4; i++)
         {
             ankerls[i] = new();
@@ -80,7 +80,7 @@ public class HashMap_ForEach
     }
 
     [Benchmark]
-    public int[] System()
+    public int[] SystemAlg()
     {
         var results = new int[data.Length];
         var size = SizeIndex(Size);

@@ -8,7 +8,7 @@ public class Test_HashSet_System
     [Test]
     public void Test1()
     {
-        var set = new SHashSet<int, SystemHashSearcher, Hasher.AsIs>();
+        var set = new SDenseHashSet<int, DenseHashSearcher.SysAlg, Hasher.AsIs>();
         for (int i = 0; i < 100; i++)
         {
             Assert.That(set.TryAdd(i), Is.True);

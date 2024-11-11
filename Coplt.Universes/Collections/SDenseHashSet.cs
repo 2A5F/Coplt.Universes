@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 namespace Coplt.Universes.Collections;
 
 [StructLayout(LayoutKind.Auto)]
-public struct SHashSet<T, HashSearcher, HashWrapper>() : ISet<T>
-    where HashSearcher : struct, IHashSearcher<HashSearcher>
+public struct SDenseHashSet<T, HashSearcher, HashWrapper>() : ISet<T>
+    where HashSearcher : struct, IDenseHashSearcher<HashSearcher>
     where HashWrapper : struct, IHashWrapper
 {
     #region Fields
@@ -18,10 +18,10 @@ public struct SHashSet<T, HashSearcher, HashWrapper>() : ISet<T>
 
     #region Ctrl
 
-    internal readonly ref struct Ctrl(ref SHashSet<T, HashSearcher, HashWrapper> self, ref T item)
+    internal readonly ref struct Ctrl(ref SDenseHashSet<T, HashSearcher, HashWrapper> self, ref T item)
         : IDenseHashSearchCtrl<RefBox<T>, RefBox<T>>
     {
-        private readonly ref SHashSet<T, HashSearcher, HashWrapper> self = ref self;
+        private readonly ref SDenseHashSet<T, HashSearcher, HashWrapper> self = ref self;
         private readonly ref T item = ref item;
         public uint Size
         {

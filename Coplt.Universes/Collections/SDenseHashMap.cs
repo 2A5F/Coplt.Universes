@@ -7,8 +7,8 @@ using Coplt.Universes.Utilities;
 namespace Coplt.Universes.Collections;
 
 [StructLayout(LayoutKind.Auto)]
-public struct SHashMap<TKey, TValue, HashSearcher, HashWrapper>() : IDictionary<TKey, TValue>
-    where HashSearcher : struct, IHashSearcher<HashSearcher>
+public struct SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper>() : IDictionary<TKey, TValue>
+    where HashSearcher : struct, IDenseHashSearcher<HashSearcher>
     where HashWrapper : IHashWrapper
 {
     #region Fields
@@ -27,10 +27,10 @@ public struct SHashMap<TKey, TValue, HashSearcher, HashWrapper>() : IDictionary<
         public readonly ref TValue value = ref value;
     }
 
-    internal readonly ref struct Ctrl(ref SHashMap<TKey, TValue, HashSearcher, HashWrapper> self, ref TKey key)
+    internal readonly ref struct Ctrl(ref SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper> self, ref TKey key)
         : IDenseHashSearchCtrl<RefBox<TValue>, Ctx>
     {
-        private readonly ref SHashMap<TKey, TValue, HashSearcher, HashWrapper> self = ref self;
+        private readonly ref SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper> self = ref self;
         private readonly ref TKey key = ref key;
         public uint Size
         {
@@ -80,13 +80,13 @@ public struct SHashMap<TKey, TValue, HashSearcher, HashWrapper>() : IDictionary<
     }
 
     internal readonly ref struct CtrlRemoveGetValue(
-        ref SHashMap<TKey, TValue, HashSearcher, HashWrapper> self,
+        ref SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper> self,
         ref TKey key,
         ref TValue value
     )
         : IDenseHashSearchCtrl<RefBox<TValue>, Ctx>
     {
-        private readonly ref SHashMap<TKey, TValue, HashSearcher, HashWrapper> self = ref self;
+        private readonly ref SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper> self = ref self;
         private readonly ref TKey key = ref key;
         private readonly ref TValue value = ref value;
         public uint Size
@@ -345,7 +345,7 @@ public struct SHashMap<TKey, TValue, HashSearcher, HashWrapper>() : IDictionary<
         GetEnumerator();
     readonly IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public struct Enumerator(scoped in SHashMap<TKey, TValue, HashSearcher, HashWrapper> self)
+    public struct Enumerator(scoped in SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper> self)
         : IEnumerator<KeyValuePair<TKey, TValue>>
     {
         private int m_index = -1;
@@ -375,7 +375,7 @@ public struct SHashMap<TKey, TValue, HashSearcher, HashWrapper>() : IDictionary<
     [UnscopedRef]
     public readonly ValueView Values => new(this);
 
-    public readonly struct KeyView(SHashMap<TKey, TValue, HashSearcher, HashWrapper> self) : ICollection<TKey>
+    public readonly struct KeyView(SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper> self) : ICollection<TKey>
     {
         public int Count => self.Count;
 
@@ -397,7 +397,7 @@ public struct SHashMap<TKey, TValue, HashSearcher, HashWrapper>() : IDictionary<
         public void CopyTo(Span<TKey> span) => self.m_keys.CopyTo(span);
     }
 
-    public readonly struct ValueView(SHashMap<TKey, TValue, HashSearcher, HashWrapper> self) : ICollection<TValue>
+    public readonly struct ValueView(SDenseHashMap<TKey, TValue, HashSearcher, HashWrapper> self) : ICollection<TValue>
     {
         public int Count => self.Count;
 
