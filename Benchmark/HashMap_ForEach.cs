@@ -11,7 +11,8 @@ namespace Benchmark;
 public class HashMap_ForEach
 {
     private int[] data;
-    private SAnkerlHashMap<int, int, Hasher.Default>[] ankerls;
+    private SHashMap<int, int, AnkerlHashSearcher, Hasher.Default>[] ankerls;
+    private SHashMap<int, int, SystemHashSearcher, Hasher.Default>[] systems;
     private Dictionary<int, int>[] dictionaries;
     private static int[] Sizes = [10, 100, 1000, 10000];
 
@@ -33,7 +34,17 @@ public class HashMap_ForEach
         data = new int[10000];
         RandomNumberGenerator.Fill(MemoryMarshal.AsBytes(data.AsSpan()));
 
-        ankerls = new SAnkerlHashMap<int, int, Hasher.Default>[4];
+        ankerls = new SHashMap<int, int, AnkerlHashSearcher, Hasher.Default>[4];
+        for (int i = 0; i < 4; i++)
+        {
+            ankerls[i] = new();
+            foreach (var item in data.AsSpan(0, Sizes[i]))
+            {
+                ankerls[i].TryAdd(item, item);
+            }
+        }
+
+        systems = new SHashMap<int, int, SystemHashSearcher, Hasher.Default>[4];
         for (int i = 0; i < 4; i++)
         {
             ankerls[i] = new();
@@ -60,6 +71,20 @@ public class HashMap_ForEach
         var results = new int[data.Length];
         var size = SizeIndex(Size);
         ref var map = ref ankerls[size];
+        var i = 0;
+        foreach (var kv in map)
+        {
+            results[i++] = kv.Value;
+        }
+        return results;
+    }
+
+    [Benchmark]
+    public int[] System()
+    {
+        var results = new int[data.Length];
+        var size = SizeIndex(Size);
+        ref var map = ref systems[size];
         var i = 0;
         foreach (var kv in map)
         {

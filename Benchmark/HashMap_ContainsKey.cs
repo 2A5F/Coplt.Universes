@@ -11,7 +11,8 @@ namespace Benchmark;
 public class HashMap_ContainsKey
 {
     private int[] data;
-    private SAnkerlHashMap<int, int, Hasher.Default>[] ankerls;
+    private SHashMap<int, int, AnkerlHashSearcher, Hasher.Default>[] ankerls;
+    private SHashMap<int, int, SystemHashSearcher, Hasher.Default>[] systems;
     private Dictionary<int, int>[] dictionaries;
     private static int[] Sizes = [10, 100, 1000, 10000];
 
@@ -33,7 +34,17 @@ public class HashMap_ContainsKey
         data = new int[10000];
         RandomNumberGenerator.Fill(MemoryMarshal.AsBytes(data.AsSpan()));
 
-        ankerls = new SAnkerlHashMap<int, int, Hasher.Default>[4];
+        ankerls = new SHashMap<int, int, AnkerlHashSearcher, Hasher.Default>[4];
+        for (int i = 0; i < 4; i++)
+        {
+            ankerls[i] = new();
+            foreach (var item in data.AsSpan(0, Sizes[i]))
+            {
+                ankerls[i].TryAdd(item, item);
+            }
+        }
+        
+        systems = new SHashMap<int, int, SystemHashSearcher, Hasher.Default>[4];
         for (int i = 0; i < 4; i++)
         {
             ankerls[i] = new();
@@ -60,6 +71,19 @@ public class HashMap_ContainsKey
         var results = new bool[data.Length];
         var size = SizeIndex(Size);
         ref var map = ref ankerls[size];
+        for (int i = 0; i < size; i++)
+        {
+            results[i] = map.ContainsKey(data[i]);
+        }
+        return results;
+    }
+
+    [Benchmark]
+    public bool[] System()
+    {
+        var results = new bool[data.Length];
+        var size = SizeIndex(Size);
+        ref var map = ref systems[size];
         for (int i = 0; i < size; i++)
         {
             results[i] = map.ContainsKey(data[i]);

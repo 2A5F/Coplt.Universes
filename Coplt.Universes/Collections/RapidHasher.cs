@@ -163,11 +163,49 @@ public struct RapidHasher
         this.seed = seed;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RapidHashCore(ulong a, ulong b, ulong seed, ulong data)
+    {
+        a ^= data;
+        b ^= (uint)data;
+
+        a ^= RAPID_SECRET_1;
+        b ^= seed;
+
+        (this.a, this.b) = RapidMum(a, b);
+        this.seed = seed;
+    }
+
     #endregion
 
     #region Write
 
-    public void Write<T>(T value) where T : unmanaged => Write(MemoryMarshal.AsBytes(new ReadOnlySpan<T>(ref value)));
+    public void Write(byte data) => Write((ulong)data);
+    public void Write(sbyte data) => Write((ulong)data);
+    public void Write(short data) => Write((ulong)data);
+    public void Write(ushort data) => Write((ulong)data);
+    public void Write(int data) => Write((ulong)data);
+    public void Write(uint data) => Write((ulong)data);
+    public void Write(long data) => Write((ulong)data);
+    public void Write(ulong data)
+    {
+        size += sizeof(ulong);
+        seed = RapidHashSeed(seed, size);
+        RapidHashCore(a, b, seed, data);
+    }
+    public void Write(float data) => Write(Unsafe.BitCast<float, uint>(data));
+    public void Write(double data) => Write(Unsafe.BitCast<double, ulong>(data));
+    public void Write(char data) => Write((ulong)data);
+    public unsafe void Write<T>(T value) where T : unmanaged
+    {
+        if (sizeof(T) <= sizeof(ulong))
+        {
+            var data = 0ul;
+            Unsafe.As<ulong, T>(ref data) = value;
+            Write(data);
+        }
+        else Write(MemoryMarshal.AsBytes(new ReadOnlySpan<T>(ref value)));
+    }
     public void Write(ReadOnlySpan<byte> bytes)
     {
         size += (ulong)bytes.Length;
