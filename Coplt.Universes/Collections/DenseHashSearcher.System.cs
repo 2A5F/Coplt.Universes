@@ -32,38 +32,23 @@ public static partial class DenseHashSearcher
 
         private struct Slot
         {
-            public ulong hash;
+            public uint hash;
             public uint next;
 
             public override string ToString() => $"{{ Hash = {hash}, Next = {(int)next} }}";
         }
 
-        private struct SlotNoAlign
-        {
-#pragma warning disable CS0649
-            public uint hash_0;
-            public uint hash_1;
-            public uint next;
-#pragma warning restore CS0649
-
-            public override string ToString() => Unsafe.As<SlotNoAlign, Slot>(ref this).ToString();
-        }
-
         private uint[] m_buckets = new uint[4];
-        private SlotNoAlign[] m_slots = new SlotNoAlign[4];
+        private Slot[] m_slots = new Slot[4];
         private nuint m_size_m1 = 3;
 
         #endregion
 
         #region GetBucket
 
-        private readonly ref uint GetBucket(ulong hash) => ref m_buckets.GetUnchecked((nuint)(hash & m_size_m1));
+        private readonly ref uint GetBucket(uint hash) => ref m_buckets.GetUnchecked(hash & m_size_m1);
 
-        private readonly ref Slot SlotAt(nuint index) =>
-            ref Unsafe.As<SlotNoAlign, Slot>(ref m_slots.GetUnchecked(index));
-
-        private void MoveSlot(ref Slot dst, ref Slot src) =>
-            Unsafe.As<Slot, SlotNoAlign>(ref dst) = Unsafe.As<Slot, SlotNoAlign>(ref src);
+        private readonly ref Slot SlotAt(nuint index) => ref m_slots.GetUnchecked(index);
 
         #endregion
 
@@ -73,7 +58,7 @@ public static partial class DenseHashSearcher
         {
             var new_size = (uint)m_buckets.Length * 2;
             var new_buckets = new uint[new_size];
-            var new_slots = new SlotNoAlign[new_size];
+            var new_slots = new Slot[new_size];
             Array.Copy(m_slots, new_slots, m_slots.Length);
             m_buckets = new_buckets;
             m_slots = new_slots;
@@ -101,13 +86,13 @@ public static partial class DenseHashSearcher
             where C : allows ref struct
         {
             var collision_count = 0u;
-            ref var bucket = ref GetBucket(hash);
+            ref var bucket = ref GetBucket((uint)hash);
             var i = bucket - 1;
             while (i < (uint)m_buckets.Length)
             {
                 ref var slot = ref SlotAt(i);
                 var ctx = search.At(i);
-                if (slot.hash == hash && search.Eq(ctx))
+                if (slot.hash == (uint)hash && search.Eq(ctx))
                 {
                     is_new = false;
                     return search.Get(ctx);
@@ -124,12 +109,12 @@ public static partial class DenseHashSearcher
             if (index == m_buckets.Length)
             {
                 Grow(index);
-                bucket = ref GetBucket(hash);
+                bucket = ref GetBucket((uint)hash);
             }
 
             {
                 ref var slot = ref SlotAt(index);
-                slot.hash = hash;
+                slot.hash = (uint)hash;
                 slot.next = bucket - 1;
                 bucket = index + 1;
                 is_new = true;
@@ -149,7 +134,7 @@ public static partial class DenseHashSearcher
         {
             if (search.Size == 0) return search.None();
             var collision_count = 0u;
-            var i = GetBucket(hash) - 1;
+            var i = GetBucket((uint)hash) - 1;
             do
             {
                 if (i >= (uint)m_buckets.Length)
@@ -157,7 +142,7 @@ public static partial class DenseHashSearcher
 
                 ref var slot = ref SlotAt(i);
                 var ctx = search.At(i);
-                if (slot.hash == hash && search.Eq(ctx))
+                if (slot.hash == (uint)hash && search.Eq(ctx))
                     return search.Get(ctx);
 
                 i = slot.next;
@@ -180,14 +165,14 @@ public static partial class DenseHashSearcher
             if (search.Size == 0) return search.None();
             var count_m1 = search.Size - 1;
             uint collision_count = 0;
-            ref var bucket = ref GetBucket(hash);
+            ref var bucket = ref GetBucket((uint)hash);
             var prev = uint.MaxValue;
             var i = bucket - 1; // Value in buckets is 1-based
             while ((int)i >= 0)
             {
                 ref var slot = ref SlotAt(i);
                 var ctx = search.At(i);
-                if (slot.hash == hash && search.Eq(ctx))
+                if (slot.hash == (uint)hash && search.Eq(ctx))
                 {
                     if (i == count_m1)
                     {
@@ -232,7 +217,7 @@ public static partial class DenseHashSearcher
                             {
                                 last_bucket = i + 1;
                             }
-                            MoveSlot(ref slot, ref last_slot);
+                            slot = last_slot;
                             return search.RemoveSwapLast(last_ctx, i);
                         }
 

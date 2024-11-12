@@ -1,18 +1,21 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Diagnostics.Windows.Configs;
 using Coplt.Universes.Collections;
 
 namespace Benchmark;
 
-[DisassemblyDiagnoser(printSource: true, exportHtml: true, syntax: DisassemblySyntax.Intel)]
 [MemoryDiagnoser]
+[JitStatsDiagnoser]
+[DisassemblyDiagnoser(maxDepth: 1024, printSource: true, exportHtml: true, syntax: DisassemblySyntax.Intel)]
 public class HashMap_ForEach
 {
     private int[] data;
     private SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default>[] ankerls;
-    private SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>[] systems;
+    private SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.AsIs>[] systems;
     private Dictionary<int, int>[] dictionaries;
     private static int[] Sizes = [10, 100, 1000, 10000];
 
@@ -29,6 +32,7 @@ public class HashMap_ForEach
     };
 
     [GlobalSetup]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void SetUp()
     {
         data = new int[10000];
@@ -44,7 +48,7 @@ public class HashMap_ForEach
             }
         }
 
-        systems = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>[4];
+        systems = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.AsIs>[4];
         for (int i = 0; i < 4; i++)
         {
             ankerls[i] = new();
@@ -66,6 +70,7 @@ public class HashMap_ForEach
     }
 
     [Benchmark]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public int[] Ankerl()
     {
         var results = new int[data.Length];
@@ -80,7 +85,8 @@ public class HashMap_ForEach
     }
 
     [Benchmark]
-    public int[] SystemAlg()
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public int[] SysAlg()
     {
         var results = new int[data.Length];
         var size = SizeIndex(Size);
@@ -94,6 +100,7 @@ public class HashMap_ForEach
     }
 
     [Benchmark(Baseline = true)]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public int[] Dictionary()
     {
         var results = new int[data.Length];

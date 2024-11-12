@@ -1,24 +1,28 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Diagnostics.Windows.Configs;
 using Coplt.Universes.Collections;
 
 namespace Benchmark;
 
-[DisassemblyDiagnoser(printSource: true, exportHtml: true, syntax: DisassemblySyntax.Intel)]
 [MemoryDiagnoser]
+[JitStatsDiagnoser]
+[DisassemblyDiagnoser(maxDepth: 1024, printSource: true, exportHtml: true, syntax: DisassemblySyntax.Intel)]
 public class HashMap_ContainsKey
 {
     private int[] data;
     private SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default>[] ankerls;
-    private SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>[] systems;
+    private SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.AsIs>[] systems;
     private Dictionary<int, int>[] dictionaries;
     private static int[] Sizes = [10, 100, 1000, 10000];
 
     [Params(10, 100, 1000, 10000)]
     public int Size { get; set; }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization | MethodImplOptions.AggressiveInlining)]
     private int SizeIndex(int size) => size switch
     {
         10 => 0,
@@ -29,6 +33,7 @@ public class HashMap_ContainsKey
     };
 
     [GlobalSetup]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void SetUp()
     {
         data = new int[10000];
@@ -44,7 +49,7 @@ public class HashMap_ContainsKey
             }
         }
 
-        systems = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>[4];
+        systems = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.AsIs>[4];
         for (int i = 0; i < 4; i++)
         {
             ankerls[i] = new();
@@ -66,6 +71,7 @@ public class HashMap_ContainsKey
     }
 
     [Benchmark]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public bool[] Ankerl()
     {
         var results = new bool[data.Length];
@@ -79,7 +85,8 @@ public class HashMap_ContainsKey
     }
 
     [Benchmark]
-    public bool[] SystemAlg()
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public bool[] SysAlg()
     {
         var results = new bool[data.Length];
         var size = SizeIndex(Size);
@@ -92,6 +99,7 @@ public class HashMap_ContainsKey
     }
 
     [Benchmark(Baseline = true)]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public bool[] Dictionary()
     {
         var results = new bool[data.Length];

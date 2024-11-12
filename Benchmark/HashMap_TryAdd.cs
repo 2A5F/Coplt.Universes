@@ -1,13 +1,16 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Diagnostics.Windows.Configs;
 using Coplt.Universes.Collections;
 
 namespace Benchmark;
 
-[DisassemblyDiagnoser(printSource: true, exportHtml: true, syntax: DisassemblySyntax.Intel)]
 [MemoryDiagnoser]
+[JitStatsDiagnoser]
+[DisassemblyDiagnoser(maxDepth: 1024, printSource: true, exportHtml: true, syntax: DisassemblySyntax.Intel)]
 public class HashMap_TryAdd
 {
     private int[] data;
@@ -16,6 +19,7 @@ public class HashMap_TryAdd
     public int Size { get; set; }
 
     [GlobalSetup]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void SetUp()
     {
         data = new int[10000];
@@ -23,6 +27,7 @@ public class HashMap_TryAdd
     }
 
     [Benchmark]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default> Ankerl()
     {
         var map = new SDenseHashMap<int, int, DenseHashSearcher.Ankerl, Hasher.Default>();
@@ -34,9 +39,22 @@ public class HashMap_TryAdd
     }
 
     [Benchmark]
-    public SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default> SystemAlg()
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.AsIs> SysAlg()
     {
-        var map = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Default>();
+        var map = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.AsIs>();
+        foreach (var item in data.AsSpan(0, Size))
+        {
+            map.TryAdd(item, item);
+        }
+        return map;
+    }
+
+    [Benchmark]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Aes> SysAlg_AesHash()
+    {
+        var map = new SDenseHashMap<int, int, DenseHashSearcher.SysAlg, Hasher.Aes>();
         foreach (var item in data.AsSpan(0, Size))
         {
             map.TryAdd(item, item);
@@ -45,6 +63,7 @@ public class HashMap_TryAdd
     }
 
     [Benchmark(Baseline = true)]
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public Dictionary<int, int> Dictionary()
     {
         var map = new Dictionary<int, int>();
